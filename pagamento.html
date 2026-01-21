@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal do Bicho | Pagamentos</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="seguranca.js"></script>
+  <script type="module" src="firebase-config.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="header-user">
+    <div>
+      <h1>🎰 Portal do Bicho</h1>
+      <p>Gerenciamento de Saldo</p>
+    </div>
+    <div class="user-info" id="user-info" style="display: none;">
+      <div>
+        <strong id="user-nome"></strong>
+        <div class="saldo">R$ <span id="user-saldo">0</span></div>
+      </div>
+      <button class="logout-btn" onclick="voltarParaJogo()">Voltar</button>
+    </div>
+  </div>
+</header>
+
+<main class="pagamento-main">
+  <div class="pagamento-container">
+    
+    <!-- DEPOSITAR -->
+    <section class="pagamento-section">
+      <h2>💰 Depositar Fundos</h2>
+      
+      <div class="deposito-opcoes">
+        <!-- MERCADO PAGO -->
+        <div class="opcao-pagamento">
+          <h3>Mercado Pago</h3>
+          <p class="descricao">Transferência bancária, cartão de crédito ou débito</p>
+          <input type="number" id="valor-mp" placeholder="Valor (R$)" min="10" step="0.01">
+          <button class="btn-pagamento mp" onclick="depositar('mercadopago')">
+            Depositar via Mercado Pago
+          </button>
+        </div>
+
+        <!-- PAGBANK -->
+        <div class="opcao-pagamento">
+          <h3>PagBank</h3>
+          <p class="descricao">PIX e Cartão de Crédito</p>
+          <input type="number" id="valor-pagbank" placeholder="Valor (R$)" min="10" step="0.01">
+          <button class="btn-pagamento pagbank" onclick="depositar('pagbank')">
+            Depositar via PagBank
+          </button>
+        </div>
+
+        <!-- STRIPE -->
+        <div class="opcao-pagamento">
+          <h3>Cartão de Crédito</h3>
+          <p class="descricao">Stripe - Processamento seguro</p>
+          <input type="number" id="valor-stripe" placeholder="Valor (R$)" min="10" step="0.01">
+          
+          <div class="form-cartao">
+            <input type="text" id="numero-cartao" placeholder="Número do Cartão" maxlength="19">
+            <div class="row">
+              <input type="text" id="validade" placeholder="MM/YY" maxlength="5">
+              <input type="text" id="cvv" placeholder="CVV" maxlength="4">
+            </div>
+            <input type="text" id="nome-cartao" placeholder="Nome do Titular">
+          </div>
+          
+          <button class="btn-pagamento stripe" onclick="depositar('stripe')">
+            Depositar via Stripe
+          </button>
+        </div>
+
+        <!-- PIX -->
+        <div class="opcao-pagamento">
+          <h3>PIX</h3>
+          <p class="descricao">Transferência instantânea</p>
+          <input type="number" id="valor-pix" placeholder="Valor (R$)" min="10" step="0.01">
+          <button class="btn-pagamento pix" onclick="depositarPix()">
+            Gerar QR Code PIX
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SACAR -->
+    <section class="pagamento-section">
+      <h2>💸 Sacar Fundos</h2>
+      
+      <div class="saque-container">
+        <div class="info-saque">
+          <p><strong>Saldo Disponível:</strong> R$ <span id="saldo-disponivel">0</span></p>
+          <p><small>Saque mínimo: R$ 50 | Taxa: 2%</small></p>
+        </div>
+
+        <div class="aviso-banco">
+          <span>ℹ️ Dados bancários necessários para sacar</span>
+          <a href="dados-bancarios.html" class="link-banco">Ir para Banco →</a>
+        </div>
+
+        <input type="number" id="valor-saque" placeholder="Valor a sacar (R$)" min="50" step="0.01">
+        
+        <div class="metodos-saque">
+          <label>
+            <input type="radio" name="metodo-saque" value="bancaria" checked>
+            Transferência Bancária
+          </label>
+          <label>
+            <input type="radio" name="metodo-saque" value="pix">
+            PIX
+          </label>
+          <label>
+            <input type="radio" name="metodo-saque" value="wallet">
+            Carteira Digital
+          </label>
+        </div>
+
+        <button class="btn-saque" onclick="solicitarSaque()">Solicitar Saque</button>
+      </div>
+    </section>
+
+    <!-- HISTÓRICO -->
+    <section class="pagamento-section">
+      <h2>📋 Histórico de Transações</h2>
+      <div id="historico-transacoes" class="historico">
+        <p class="vazio">Nenhuma transação realizada ainda</p>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- MODAL PIX -->
+  <div id="modal-pix" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="fecharModalPix()">&times;</span>
+      <h2>QR Code PIX</h2>
+      <div id="qr-code-pix" class="qr-code"></div>
+      <p id="chave-pix" class="chave-pix"></p>
+      <p class="instrucoes">Escaneie o QR Code ou copie a chave PIX acima</p>
+      <button onclick="confirmarPix()" class="btn-confirmar-pix">Já Transferi</button>
+    </div>
+  </div>
+
+</main>
+
+<script src="sessao.js?v=4"></script>
+<script src="pagamento.js?v=4"></script>
+
+</body>
+</html>

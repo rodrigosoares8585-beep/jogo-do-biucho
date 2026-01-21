@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Portal do Bicho | Apostas Online</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="seguranca.js"></script>
+  <script type="module" src="firebase-config.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="header-user">
+    <div>
+      <h1>🎰 Portal do Bicho</h1>
+      <p>Resultado em Tempo Real • Apostas Seguras</p>
+    </div>
+    <div class="user-info" id="user-info" style="display: none;">
+      <div>
+        <strong id="user-nome"></strong>
+        <div class="saldo">R$ <span id="user-saldo">0</span></div>
+      </div>
+      <button class="depositar-btn" onclick="irParaPagamento()">Depositar</button>
+      <button id="admin-btn" class="depositar-btn" onclick="abrirAdmin()" style="display: none; background: #e11d48; margin-right: 5px;">Admin</button>
+      <button class="logout-btn" onclick="fazerLogout()">Sair</button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <div style="text-align: center; margin-bottom: 20px;">
+    <button class="btn-cotacoes" onclick="abrirModalCotacoes()">📜 Ver Tabela de Cotações</button>
+  </div>
+
+  <section id="resultado">
+    <h2>Resultado Atual <span id="badge-status" class="badge-status"></span></h2>
+    <div id="lista-premios" class="lista-premios"><div class="loading">Aguardando resultado...</div></div>
+  </section>
+
+  <section class="apostas-numericas">
+    <h2>Apostas Numéricas & Especiais</h2>
+    <div class="form-aposta-numerica">
+      
+      <select id="tipo-aposta-numerica" onchange="toggleCamposNumericos()">
+        <option value="dezena">Dezena (2 dígitos)</option>
+        <option value="centena">Centena (3 dígitos)</option>
+        <option value="milhar">Milhar (4 dígitos)</option>
+        <option value="grupo">Grupo (Número do Bicho 1-25)</option>
+        <option value="duque_dezena">Duque de Dezena (2 dezenas)</option>
+        <option value="terno_dezena">Terno de Dezena (3 dezenas)</option>
+        <option value="duque_grupo">Duque de Grupo (2 grupos)</option>
+        <option value="terno_grupo">Terno de Grupo (3 grupos)</option>
+      </select>
+
+      <!-- Campo para Número Único -->
+      <input type="text" id="numero-aposta" placeholder="Digite a Dezena (00-99)" maxlength="2">
+      
+      <!-- Campo para Múltiplos Números (Oculto por padrão) -->
+      <input type="text" id="numeros-multiplos" placeholder="Ex: 12, 45" style="display: none;">
+
+      <input type="number" id="valor-aposta-numerica" placeholder="Valor da Aposta (R$)" step="0.01">
+
+      <div class="opcao-cercado" style="justify-content: center; margin-bottom: 15px;">
+        <label style="cursor:pointer; display:flex; align-items:center; gap:5px;"><input type="checkbox" id="cercado-aposta-numerica"> 1º ao 5º (Cercado)</label>
+      </div>
+
+      <button class="btn-apostar" onclick="fazerApostaNumerica()">Apostar</button>
+    </div>
+  </section>
+
+  <section class="bichos" id="bichos"></section>
+
+</main>
+
+<!-- BOLETIM DE APOSTAS (CARRINHO) -->
+<div id="boletim" class="boletim">
+  <div class="boletim-header" onclick="toggleBoletim()">
+    <h3>🎫 Boletim de Apostas (<span id="qtd-carrinho">0</span>)</h3>
+    <span id="seta-boletim">▲</span>
+  </div>
+  <div class="boletim-content">
+    <div id="itens-carrinho"></div>
+    <div class="boletim-resumo">
+      <p>Total Apostado: <strong id="total-carrinho">R$ 0,00</strong></p>
+      <p>Retorno Possível: <strong id="ganho-carrinho" style="color:#00ffd5">R$ 0,00</strong></p>
+      <button class="btn-confirmar-boletim" onclick="confirmarBoletim()">✅ CONFIRMAR APOSTAS</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p>© 2026 Portal do Bicho • Todos os direitos reservados • Responsável: Secretaria de Avaliação, Planejamento, Energia e Loteria</p>
+  <p style="font-size: 10px; opacity: 0.3; cursor: pointer;" onclick="abrirAdmin()">●</p>
+</footer>
+
+<!-- MODAL TABELA DE COTAÇÕES -->
+<div id="modal-cotacoes" class="modal">
+  <div class="modal-content" style="max-width: 800px; width: 95%;">
+    <span class="close" onclick="fecharModalCotacoes()">&times;</span>
+    <h2 style="color: #00ffd5; margin-top: 0;">Tabela Oficial</h2>
+    <!-- Tenta carregar JPG, se falhar tenta PNG -->
+    <img src="imagens/tabela_cotacoes.jpg" onerror="this.src='imagens/tabela_cotacoes.png'" alt="Tabela de Cotações" style="width: 100%; height: auto; border-radius: 8px; border: 1px solid rgba(0,255,213,0.3); margin-top: 10px;">
+  </div>
+</div>
+
+<script src="script.js?v=5"></script>
+<script src="sessao.js?v=5"></script>
+</body>
+</html>

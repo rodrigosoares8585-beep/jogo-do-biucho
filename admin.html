@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal do Bicho | Administração</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="seguranca.js"></script>
+  <script type="module" src="firebase-config.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="header-user">
+    <div>
+      <h1>🎰 Portal do Bicho</h1>
+      <p>Painel Administrativo</p>
+    </div>
+    <div class="user-info">
+      <button class="logout-btn" onclick="voltarHome()">Voltar</button>
+    </div>
+  </div>
+</header>
+
+<main class="admin-main">
+  <div class="admin-container">
+
+    <!-- MENU ADMIN -->
+    <nav class="admin-menu">
+      <button class="menu-item active" onclick="abrirAba('confirmacoes')">✅ Confirmações Pendentes</button>
+      <button class="menu-item" onclick="abrirAba('contas')">💳 Contas de Recebimento</button>
+      <button class="menu-item" onclick="abrirAba('relatorios')">📊 Relatórios</button>
+      <button class="menu-item" onclick="abrirAba('usuarios')">👥 Usuários</button>
+      <button class="menu-item" onclick="abrirAba('transacoes')">📈 Transações</button>
+    </nav>
+
+    <!-- ABA: CONFIRMAÇÕES PENDENTES -->
+    <section id="aba-confirmacoes" class="aba-admin active">
+      <h2>✅ Confirmações Pendentes</h2>
+      <p class="descricao">Aprove ou rejeite depósitos e saques pendentes</p>
+
+      <div class="confirmacoes-tabs">
+        <button class="tab-btn active" onclick="abrirAbaPendente('depositos')">💰 Depósitos (Entrada)</button>
+        <button class="tab-btn" onclick="abrirAbaPendente('saques')">💸 Saques (Saída)</button>
+      </div>
+
+      <!-- DEPÓSITOS PENDENTES -->
+      <div id="tab-depositos" class="tab-confirmacao active">
+        <div class="info-box">
+          <strong>💡 Como funciona:</strong>
+          <ol>
+            <li>Apostador escolhe Mercado Pago, Stripe ou PIX</li>
+            <li>Transferência é enviada para sua conta</li>
+            <li>Você recebe uma notificação (via webhook ou manual)</li>
+            <li>Você confirma aqui que recebeu o dinheiro</li>
+            <li>O saldo do apostador é atualizado automaticamente</li>
+          </ol>
+        </div>
+
+        <div id="depositos-pendentes" class="lista-confirmacoes"></div>
+      </div>
+
+      <!-- SAQUES PENDENTES -->
+      <div id="tab-saques" class="tab-confirmacao">
+        <div class="info-box">
+          <strong>💡 Como funciona:</strong>
+          <ol>
+            <li>Apostador solicita saque para sua conta bancária</li>
+            <li>Você faz a transferência de sua conta</li>
+            <li>Aqui você confirma que enviou o dinheiro</li>
+            <li>O sistema registra a transação como concluída</li>
+          </ol>
+        </div>
+
+        <div id="saques-pendentes" class="lista-confirmacoes"></div>
+      </div>
+
+    </section>
+    <section id="aba-contas" class="aba-admin active">
+      <h2>💳 Contas de Recebimento - Depósitos</h2>
+      <p class="descricao">Configure as contas bancárias para receber depósitos dos apostadores</p>
+
+      <!-- MERCADO PAGO -->
+      <div class="config-card">
+        <h3>Mercado Pago</h3>
+        <div class="config-form">
+          <div class="form-grupo">
+            <label>Email da Conta Mercado Pago *</label>
+            <input type="email" id="mp-email" placeholder="seu@email.com">
+          </div>
+          <div class="form-grupo">
+            <label>Access Token *</label>
+            <input type="password" id="mp-token" placeholder="Seu access token">
+            <small>Obtenha em: https://www.mercadopago.com.br/developers/panel</small>
+          </div>
+          <div class="form-grupo">
+            <label>Chave PIX (Mercado Pago)</label>
+            <input type="text" id="mp-pix" placeholder="Sua chave PIX">
+          </div>
+          <button class="btn-salvar" onclick="salvarMercadoPago()">Salvar Configuração MP</button>
+          <div id="status-mp" class="status-config"></div>
+        </div>
+      </div>
+
+      <!-- PAGBANK -->
+      <div class="config-card">
+        <h3>PagBank</h3>
+        <div class="config-form">
+          <div class="form-grupo">
+            <label>Email da Conta PagBank *</label>
+            <input type="email" id="pagbank-email" placeholder="seu@email.com">
+          </div>
+          <div class="form-grupo">
+            <label>Token (Opcional)</label>
+            <input type="password" id="pagbank-token" placeholder="Seu token de integração">
+          </div>
+          <button class="btn-salvar" onclick="salvarPagBank()">Salvar Configuração PagBank</button>
+          <div id="status-pagbank" class="status-config"></div>
+        </div>
+      </div>
+
+      <!-- STRIPE -->
+      <div class="config-card">
+        <h3>Stripe</h3>
+        <div class="config-form">
+          <div class="form-grupo">
+            <label>Publishable Key *</label>
+            <input type="password" id="stripe-pub" placeholder="pk_live_...">
+          </div>
+          <div class="form-grupo">
+            <label>Secret Key *</label>
+            <input type="password" id="stripe-secret" placeholder="sk_live_...">
+          </div>
+          <div class="form-grupo">
+            <label>ID da Conta Stripe *</label>
+            <input type="text" id="stripe-account" placeholder="acct_...">
+          </div>
+          <button class="btn-salvar" onclick="salvarStripe()">Salvar Configuração Stripe</button>
+          <div id="status-stripe" class="status-config"></div>
+        </div>
+      </div>
+
+      <!-- PIX -->
+      <div class="config-card">
+        <h3>PIX</h3>
+        <div class="config-form">
+          <div class="form-grupo">
+            <label>Chave PIX (CPF, Email ou Aleatória) *</label>
+            <input type="text" id="pix-chave" placeholder="Sua chave PIX">
+          </div>
+          <div class="form-grupo">
+            <label>Nome do Beneficiário *</label>
+            <input type="text" id="pix-nome" placeholder="Nome completo">
+          </div>
+          <div class="form-grupo">
+            <label>Descrição (opcional)</label>
+            <input type="text" id="pix-descricao" placeholder="Ex: Portal do Bicho Apostas">
+          </div>
+          <button class="btn-salvar" onclick="salvarPix()">Salvar Configuração PIX</button>
+          <div id="status-pix" class="status-config"></div>
+        </div>
+      </div>
+
+      <!-- RESUMO DAS CONTAS -->
+      <div class="resumo-contas">
+        <h3>📋 Contas Cadastradas</h3>
+        <div id="contas-ativas" class="contas-lista">
+          <p class="vazio">Nenhuma conta configurada ainda</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA: RELATÓRIOS -->
+    <section id="aba-relatorios" class="aba-admin">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0;">📊 Relatórios</h2>
+        <button class="btn-admin" onclick="exportarRelatorioPDF()" style="background: #e11d48; color: white; border: none; padding: 10px 15px; font-size: 14px;">📄 Exportar PDF</button>
+      </div>
+      
+      <div class="relatorio-cards">
+        <div class="relatorio-card">
+          <h4>💰 Total Depositado</h4>
+          <div class="valor-grande" id="total-depositado">R$ 0,00</div>
+          <small>Todos os tempos</small>
+        </div>
+        
+        <div class="relatorio-card">
+          <h4>💸 Total Sacado</h4>
+          <div class="valor-grande" id="total-sacado">R$ 0,00</div>
+          <small>Todos os tempos</small>
+        </div>
+
+        <div class="relatorio-card">
+          <h4>🏆 Total Pago em Prêmios</h4>
+          <div class="valor-grande" id="total-premios" style="color: #ffd166;">R$ 0,00</div>
+          <small>Saída do Caixa</small>
+        </div>
+
+        <div class="relatorio-card">
+          <h4>🏦 Fundo de Caixa</h4>
+          <div class="valor-grande" id="fundo-caixa">R$ 5.000,00</div>
+          <small>Reserva Fixa</small>
+        </div>
+
+        <div class="relatorio-card">
+          <h4>💵 Saldo Operacional</h4>
+          <div class="valor-grande" id="saldo-caixa">R$ 0,00</div>
+          <small>Dep - Saq - Prêmios</small>
+        </div>
+
+        <div class="relatorio-card">
+          <h4>👥 Total de Usuários</h4>
+          <div class="valor-grande" id="total-usuarios">0</div>
+          <small>Cadastrados</small>
+        </div>
+      </div>
+
+      <div class="relatorio-detalhes" style="margin-bottom: 20px;">
+        <h3>⚙️ Configuração de Fundo de Caixa</h3>
+        <p style="font-size: 13px; opacity: 0.8; margin-bottom: 15px;">Defina o valor máximo para o Fundo de Caixa. O excedente dos depósitos irá automaticamente para o Caixa Operacional.</p>
+        <div style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+          <div class="form-grupo" style="flex: 1; min-width: 200px;">
+            <label style="display: block; margin-bottom: 8px; color: #00ffd5; font-weight: bold;">Limite do Fundo (R$)</label>
+            <input type="number" id="input-limite-fundo" placeholder="Ex: 5000.00" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(0,255,213,0.3); color: white; border-radius: 8px;">
+          </div>
+          <button class="btn-salvar" onclick="salvarLimiteFundo()" style="height: 45px; min-width: 150px;">💾 Salvar Limite</button>
+        </div>
+      </div>
+
+      <div class="relatorio-detalhes" style="margin-bottom: 20px;">
+        <h3>📈 Movimentação Financeira</h3>
+        <canvas id="graficoFinanceiro" style="width: 100%; height: 300px;"></canvas>
+      </div>
+
+      <div class="relatorio-detalhes" style="margin-bottom: 20px;">
+        <h3>🏆 Histórico de Ganhos (Últimos Prêmios)</h3>
+        <div id="lista-ganhos-recentes" class="transacoes-admin-lista"></div>
+      </div>
+
+      <div class="relatorio-detalhes">
+        <h3>Transações por Tipo</h3>
+        <div id="transacoes-resumo" class="transacoes-resumo"></div>
+      </div>
+
+      <div class="relatorio-detalhes" style="margin-top: 20px; border: 1px solid rgba(255, 107, 107, 0.3);">
+        <h3 style="color: #ff6b6b;">🚫 Zona de Perigo</h3>
+        <p style="font-size: 13px; opacity: 0.8; margin-bottom: 15px;">Cuidado: Esta ação irá reiniciar todos os contadores financeiros (Depósitos, Saques, Fundo e Caixa).</p>
+        <button class="btn-admin" onclick="zerarFinanceiroCompleto()" style="background: rgba(255, 107, 107, 0.15); color: #ff6b6b; border: 1px solid #ff6b6b; padding: 12px; width: 100%; font-weight: bold; cursor: pointer;">⚠️ ZERAR TUDO (RESETAR FINANCEIRO)</button>
+      </div>
+    </section>
+
+    <!-- ABA: USUÁRIOS -->
+    <section id="aba-usuarios" class="aba-admin">
+      <h2>👥 Gerenciar Usuários</h2>
+      
+      <div class="usuarios-filtro">
+        <input type="text" id="filtro-usuarios" placeholder="Buscar por nome ou email..." onkeyup="filtrarUsuarios()">
+      </div>
+
+      <div id="lista-usuarios" class="usuarios-lista"></div>
+    </section>
+
+    <!-- ABA: TRANSAÇÕES -->
+    <section id="aba-transacoes" class="aba-admin">
+      <h2>📈 Histórico de Transações</h2>
+      
+      <div class="transacoes-filtro">
+        <select id="filtro-tipo" onchange="filtrarTransacoes()">
+          <option value="">Todos os tipos</option>
+          <option value="Depósito">Depósitos</option>
+          <option value="Saque">Saques</option>
+          <option value="Aposta">Apostas</option>
+        </select>
+        <input type="text" id="filtro-data" placeholder="Data (DD/MM/YYYY)" onkeyup="filtrarTransacoes()">
+      </div>
+
+      <div id="lista-transacoes" class="transacoes-admin"></div>
+    </section>
+
+  </div>
+</main>
+
+<script src="admin.js?v=6"></script>
+
+</body>
+</html>

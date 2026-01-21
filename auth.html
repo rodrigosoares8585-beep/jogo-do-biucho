@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Portal do Bicho | Login</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="seguranca.js"></script>
+  <script type="module" src="firebase-config.js"></script>
+</head>
+<body class="auth-body">
+
+<div class="auth-container">
+  <div class="auth-card">
+    <h1>🎰 Portal do Bicho</h1>
+    <p class="subtitle">Melhor casa de apostas online</p>
+
+    <!-- FORM LOGIN -->
+    <div id="login-form" class="auth-form active">
+      <h2>Login</h2>
+      <input type="email" id="login-email" placeholder="Email" required>
+      <input type="password" id="login-senha" placeholder="Senha" required>
+      <button onclick="fazerLogin()">Entrar</button>
+      <p class="toggle-form">Não tem conta? <a href="#" onclick="alternarForm(event)">Registre-se</a></p>
+    </div>
+
+    <!-- FORM REGISTRO -->
+    <div id="register-form" class="auth-form">
+      <h2>Criar Conta</h2>
+      <input type="text" id="register-nome" placeholder="Nome completo" required>
+      <input type="email" id="register-email" placeholder="Email" required>
+      <input type="password" id="register-senha" placeholder="Senha (mín. 6 caracteres)" required>
+      <input type="password" id="register-senha-conf" placeholder="Confirmar senha" required>
+      <button onclick="fazerRegistro()">Registrar</button>
+      <p class="toggle-form">Já tem conta? <a href="#" onclick="alternarForm(event)">Faça login</a></p>
+    </div>
+
+    <div id="mensagem-erro" class="mensagem"></div>
+    <div id="mensagem-sucesso" class="mensagem sucesso"></div>
+  </div>
+</div>
+
+<script src="auth.js?v=4"></script>
+<script>
+// Função auxiliar para obter usuário (duplicada por estar em página separada)
+function obterUsuario() {
+  const usuarioLogado = localStorage.getItem("usuarioLogado");
+  return usuarioLogado ? JSON.parse(usuarioLogado) : null;
+}
+
+function atualizarSaldo(novoSaldo) {
+  const usuario = obterUsuario();
+  if (usuario) {
+    usuario.saldo = novoSaldo;
+    localStorage.setItem("usuarioLogado", JSON.stringify(usuario));
+  }
+}
+</script>
+</body>
+</html>

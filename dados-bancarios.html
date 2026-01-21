@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal do Bicho | Dados Bancários</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="seguranca.js"></script>
+  <script type="module" src="firebase-config.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="header-user">
+    <div>
+      <h1>🎰 Portal do Bicho</h1>
+      <p>Cadastro Bancário</p>
+    </div>
+    <div class="user-info" id="user-info" style="display: none;">
+      <div>
+        <strong id="user-nome"></strong>
+      </div>
+      <button class="logout-btn" onclick="voltarPagamento()">Voltar</button>
+    </div>
+  </div>
+</header>
+
+<main class="dados-main">
+  <div class="dados-container">
+
+    <!-- FORMULÁRIO DE CADASTRO -->
+    <section class="dados-section">
+      <h2>📋 Dados Bancários</h2>
+      
+      <div id="dados-existentes" class="dados-existentes" style="display: none;">
+        <div class="alerta sucesso">
+          <strong>✅ Dados cadastrados com sucesso!</strong>
+        </div>
+        <div class="resumo-dados">
+          <p><strong>CPF:</strong> <span id="cpf-display">---</span></p>
+          <p><strong>Banco:</strong> <span id="banco-display">---</span></p>
+          <p><strong>Agência:</strong> <span id="agencia-display">---</span></p>
+          <p><strong>Conta:</strong> <span id="conta-display">---</span></p>
+          <p><strong>Titular:</strong> <span id="titular-display">---</span></p>
+        </div>
+        <button class="btn-editar" onclick="editarDados()">Editar Dados</button>
+        <button class="btn-deletar" onclick="deletarDados()">Deletar Cadastro</button>
+      </div>
+
+      <div id="formulario-dados" class="formulario-dados">
+        <div class="form-grupo">
+          <label for="cpf">CPF *</label>
+          <input type="text" id="cpf" placeholder="000.000.000-00" maxlength="14">
+          <small>Será usado para transferências</small>
+        </div>
+
+        <div class="form-grupo">
+          <label for="banco">Banco *</label>
+          <select id="banco" required>
+            <option value="">Selecione o banco...</option>
+            <option value="001">Banco do Brasil</option>
+            <option value="033">Santander</option>
+            <option value="104">Caixa Econômica</option>
+            <option value="237">Bradesco</option>
+            <option value="341">Itaú</option>
+            <option value="389">Banco Mercantil</option>
+            <option value="392">Barclays</option>
+            <option value="422">Banco Safra</option>
+            <option value="480">Banco de Brasília</option>
+            <option value="633">Banco Rendimento</option>
+            <option value="655">Banco Votorantim</option>
+            <option value="745">Banco Citibank</option>
+            <option value="999">Outro</option>
+          </select>
+        </div>
+
+        <div class="form-grupo">
+          <label for="agencia">Agência *</label>
+          <input type="text" id="agencia" placeholder="0000" maxlength="5">
+          <small>Sem traço</small>
+        </div>
+
+        <div class="form-grupo">
+          <label for="conta">Número da Conta *</label>
+          <input type="text" id="conta" placeholder="000000000" maxlength="10">
+          <small>Sem traço ou dígito verificador</small>
+        </div>
+
+        <div class="form-grupo">
+          <label for="tipo-conta">Tipo de Conta *</label>
+          <select id="tipo-conta" required>
+            <option value="">Selecione...</option>
+            <option value="corrente">Conta Corrente</option>
+            <option value="poupanca">Conta Poupança</option>
+            <option value="salario">Conta Salário</option>
+          </select>
+        </div>
+
+        <div class="form-grupo">
+          <label for="titular">Nome do Titular *</label>
+          <input type="text" id="titular" placeholder="Nome completo" maxlength="60">
+          <small>Deve corresponder à conta bancária</small>
+        </div>
+
+        <div class="alerta info">
+          <strong>🔒 Seus dados são criptografados</strong> e usados apenas para processar saques
+        </div>
+
+        <button class="btn-salvar" onclick="salvarDadosBancarios()">Salvar Dados Bancários</button>
+      </div>
+
+    </section>
+
+    <!-- INFORMAÇÕES -->
+    <section class="dados-section">
+      <h2>ℹ️ Informações Importantes</h2>
+      <div class="informacoes">
+        <div class="info-item">
+          <h4>⏱️ Prazo de Saque</h4>
+          <p>Os saques são processados em 1-3 dias úteis após aprovação</p>
+        </div>
+        <div class="info-item">
+          <h4>💰 Taxa de Saque</h4>
+          <p>Taxa administrativa de 2% sobre o valor do saque</p>
+        </div>
+        <div class="info-item">
+          <h4>📱 Segurança</h4>
+          <p>Suas informações estão protegidas com criptografia de ponta</p>
+        </div>
+        <div class="info-item">
+          <h4>✅ Documentação</h4>
+          <p>Você receberá comprovantes de todos os saques realizados</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script src="sessao.js"></script>
+<script src="dados-bancarios.js"></script>
+
+</body>
+</html>
