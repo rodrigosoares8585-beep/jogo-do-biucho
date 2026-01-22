@@ -75,11 +75,9 @@ function processarMercadoPago(valor) {
 
   alert(mensagem);
 
-  // Simular aprovação automática
-  setTimeout(() => {
-    confirmarDeposito(valor, "Mercado Pago");
-    document.getElementById("valor-mp").value = "";
-  }, 1500);
+  // Apenas registra como pendente
+  confirmarDeposito(valor, "Mercado Pago");
+  document.getElementById("valor-mp").value = "";
 }
 
 function processarPagBank(valor) {
@@ -122,11 +120,9 @@ function processarStripe(valor) {
     `ID: ${numeroTransacao}`
   );
 
-  setTimeout(() => {
-    confirmarDeposito(valor, "Stripe (Cartão)");
-    limparFormularioCartao();
-    document.getElementById("valor-stripe").value = "";
-  }, 1500);
+  confirmarDeposito(valor, "Stripe (Cartão)");
+  limparFormularioCartao();
+  document.getElementById("valor-stripe").value = "";
 }
 
 function depositarPix() {
@@ -186,52 +182,89 @@ async function processarPagamentoAutomatico(valor, metodo) {
     await aguardarFirebase();
     await window.setDoc(window.doc(window.db, "transacoes", transacaoId), transacao);
     
-    // 2. Exibir QR Code (Simulado visualmente com API pública)
-    // Em um sistema real, aqui viria o "Pix Copy and Paste" da API do PagBank
-    const qrData = `00020126580014BR.GOV.BCB.PIX0136${transacaoId}520400005303986540${valor.toFixed(2).replace('.', '')}5802BR5913PortalDoBicho6008Brasilia62070503***6304`; 
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrData)}`;
-    
     const modal = document.getElementById("modal-pix");
     const qrContainer = document.getElementById("qr-code-pix");
     const chaveContainer = document.getElementById("chave-pix");
     const btnConfirmar = document.querySelector(".btn-confirmar-pix");
 
-    qrContainer.innerHTML = `<img src="${qrUrl}" alt="QR Code Pagamento" style="border-radius:8px; box-shadow: 0 0 15px rgba(0,255,213,0.2);">`;
-    chaveContainer.innerHTML = `<strong>ID da Transação:</strong> <span style="color:#00ffd5">${transacaoId}</span><br><small>Aguardando confirmação automática do banco...</small>`;
+    // 2. Chamar API para gerar Pix Real
+    qrContainer.innerHTML = '<p style="color:#fff">Gerando Pix no Banco...</p>';
+    modal.style.display = "block";
+
+    const response = await fetch('/api/criar-pix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        transacaoId: transacaoId,
+        valor: valor,
+        usuario: { nome: usuario.nome, email: usuario.email }
+      })
+    });
+
+    const responseText = await response.text();
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      throw new Error(`Erro na API (${response.status}): ${responseText || 'Resposta vazia do servidor'}`);
+    }
+
+    if (!response.ok) {
+      // Se der erro (ex: Token inválido), mostra alerta e fecha modal
+      document.getElementById("modal-pix").style.display = "none";
+      if (btnConfirmar) btnConfirmar.innerText = textoOriginalBtn;
+      throw new Error(data.error || "Erro ao comunicar com o banco.");
+    }
+
+    // Exibir QR Code Real
+    qrContainer.innerHTML = `<img src="${data.qr_code_image}" alt="QR Code Pagamento" style="border-radius:8px; box-shadow: 0 0 15px rgba(0,255,213,0.2); width: 200px;">`;
+    
+    // Exibir Copia e Cola
+    chaveContainer.innerHTML = `
+      <div style="margin-bottom:10px; word-break: break-all; font-size: 10px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px;">${data.qr_code_text}</div>
+      <button onclick="navigator.clipboard.writeText('${data.qr_code_text}'); alert('Copiado!')" style="padding:5px 10px; cursor:pointer; border:none; border-radius:4px; background:#00ffd5; color:#000; font-weight:bold;">Copiar Código Pix</button>
+      <br><br>
+      <small>Aguardando confirmação automática...</small>
+    `;
     
     // Ajustar botão para estado de "Aguardando"
     const textoOriginalBtn = btnConfirmar ? btnConfirmar.innerText : "Já Transferi";
     if (btnConfirmar) {
       btnConfirmar.innerText = "⏳ Aguardando Banco...";
-      btnConfirmar.disabled = true;
-      btnConfirmar.style.opacity = "0.6";
-      btnConfirmar.style.cursor = "wait";
     }
 
-    modal.style.display = "block";
-
-    // 3. SIMULAÇÃO DE WEBHOOK (Confirmação Automática)
-    // Simula que o banco confirmou o pagamento após 8 segundos
-    console.log("⏳ Aguardando confirmação do pagamento...");
+    // 3. ESCUTA EM TEMPO REAL (BACKEND REAL)
+    // O site fica ouvindo o Firebase. Quando o backend (Vercel) atualizar para "Aprovado", o site libera.
+    console.log("⏳ Aguardando confirmação do banco (Webhook)...");
     
-    setTimeout(async () => {
-      await aprovarTransacaoAutomaticamente(transacaoId, valor, usuario.id);
-      
-      // Restaurar botão
-      if (btnConfirmar) {
-        btnConfirmar.innerText = textoOriginalBtn;
-        btnConfirmar.disabled = false;
-        btnConfirmar.style.opacity = "1";
-        btnConfirmar.style.cursor = "pointer";
-      }
-      
-      // Limpar inputs
-      const inputPagbank = document.getElementById("valor-pagbank");
-      const inputPix = document.getElementById("valor-pix");
-      if (inputPagbank) inputPagbank.value = "";
-      if (inputPix) inputPix.value = "";
+    const unsubscribe = window.onSnapshot(window.doc(window.db, "transacoes", transacaoId), async (doc) => {
+      if (doc.exists()) {
+        const dados = doc.data();
+        if (dados.status === "Aprovado") {
+          unsubscribe(); // Para de ouvir
+          
+          // Atualiza saldo na tela (o backend já deve ter somado)
+          if (typeof verificarSessao === 'function') await verificarSessao();
+          
+          // Restaurar botão e limpar
+          if (btnConfirmar) {
+            btnConfirmar.innerText = textoOriginalBtn;
+            btnConfirmar.disabled = false;
+            btnConfirmar.style.opacity = "1";
+            btnConfirmar.style.cursor = "pointer";
+          }
+          
+          const inputPagbank = document.getElementById("valor-pagbank");
+          const inputPix = document.getElementById("valor-pix");
+          if (inputPagbank) inputPagbank.value = "";
+          if (inputPix) inputPix.value = "";
 
-    }, 8000); // 8 segundos de delay simulado
+          document.getElementById("modal-pix").style.display = "none";
+          alert(`✅ PAGAMENTO CONFIRMADO!\n\nO pagamento foi processado pelo banco e creditado.`);
+          carregarHistorico();
+        }
+      }
+    });
 
   } catch (e) {
     console.error("Erro ao processar automático:", e);
@@ -482,48 +515,6 @@ function validarCartao(numero) {
   return soma % 10 === 0;
 }
 
-function validarValidade(validade) {
-  const regex = /^\d{2}\/\d{2}$/;
-  return regex.test(validade);
-}
-
 function gerarTransacao() {
-  return "TRX" + Date.now().toString().slice(-8);
-}
-
-function limparFormularioCartao() {
-  document.getElementById("numero-cartao").value = "";
-  document.getElementById("validade").value = "";
-  document.getElementById("cvv").value = "";
-  document.getElementById("nome-cartao").value = "";
-}
-
-function voltarParaJogo() {
-  window.location.href = "index.html";
-}
-
-// Fechar modal ao clicar fora
-window.onclick = (event) => {
-  const modal = document.getElementById("modal-pix");
-  if (event.target === modal) {
-    modal.style.display = "none";
-  }
-};
-
-// ==================
-// SINCRONIZAÇÃO
-// ==================
-
-async function sincronizarConfiguracoes() {
-  try {
-    await aguardarFirebase();
-    const docSnap = await window.getDoc(window.doc(window.db, "configuracoes", "pagamentos"));
-    if (docSnap.exists()) {
-      const config = docSnap.data();
-      localStorage.setItem("config_pagamentos", JSON.stringify(config));
-      console.log("Configurações de pagamento atualizadas da nuvem.");
-    }
-  } catch (e) {
-    console.error("Erro ao sincronizar configurações:", e);
-  }
+  return 'TRX' + Date.now() + Math.floor(Math.random() * 1000);
 }

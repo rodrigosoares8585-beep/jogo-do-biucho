@@ -1,45 +1,56 @@
 // api/webhook.js
-// Este código roda no servidor da Vercel (Gratuito)
-// Ele recebe o aviso do PagBank e atualiza o Firebase
-
 const admin = require("firebase-admin");
 
-// Inicializa o Firebase Admin apenas uma vez
-if (!admin.apps.length) {
-  // Você precisará configurar essas variáveis de ambiente na Vercel
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      // Corrige a formatação da chave privada vinda das variáveis de ambiente
-      privateKey: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined,
-    }),
-  });
-}
+module.exports = async function handler(req, res) {
+  // 1. Log Inicial para saber se o PagBank chegou aqui
+  console.log(`🔔 Webhook ACIONADO! Método: ${req.method}`);
 
-const db = admin.firestore();
-
-export default async function handler(req, res) {
-  // Permite apenas método POST (que é o que o PagBank/MP envia)
   if (req.method !== 'POST') {
     return res.status(405).send('Method Not Allowed');
   }
 
   try {
-    const body = req.body;
-    console.log("🔔 Webhook recebido:", JSON.stringify(body));
-
-    // LÓGICA PARA PAGBANK (Exemplo simplificado)
-    // O PagBank envia um JSON com o status e o reference_id (que é o ID da nossa transação)
-    // A estrutura exata depende da versão da API do PagBank, verifique a documentação.
+    // 2. Inicialização Segura do Firebase (dentro do try/catch)
+    if (!admin.apps.length) {
+      if (!process.env.FIREBASE_PRIVATE_KEY) {
+        console.error("❌ ERRO CRÍTICO: Chave do Firebase não encontrada nas variáveis de ambiente.");
+        return res.status(500).json({ error: "Configuração de servidor ausente" });
+      }
+      
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        }),
+      });
+    }
     
+    const db = admin.firestore();
+    const body = req.body;
+    
+    // 3. Log do Payload (O que o banco mandou?)
+    console.log("📦 Payload Recebido:", JSON.stringify(body, null, 2));
+
+    // 4. Extração Inteligente de Dados (Tenta vários formatos)
     let transacaoId = body.reference_id || body.id; 
-    let statusPagamento = body.status || body.charges?.[0]?.status;
+    let statusPagamento = body.status;
+    
+    // Se for o formato novo (charges), pega de dentro
+    if (!statusPagamento && body.charges && body.charges.length > 0) {
+      statusPagamento = body.charges[0].status;
+      if (!transacaoId) transacaoId = body.charges[0].reference_id;
+    }
+
+    console.log(`ℹ️ Processando ID: ${transacaoId} | Status: ${statusPagamento}`);
+
+    const statusNormalizado = statusPagamento ? statusPagamento.toUpperCase() : "DESCONHECIDO";
 
     // Verifica se foi pago
-    if (statusPagamento === "PAID" || statusPagamento === "COMPLETED" || statusPagamento === "approved") {
+    if (["PAID", "COMPLETED", "APPROVED"].includes(statusNormalizado)) {
       
       if (!transacaoId) {
+        console.error("❌ ID da transação não encontrado no payload.");
         return res.status(400).json({ error: "ID da transação não encontrado no webhook" });
       }
 
@@ -47,6 +58,7 @@ export default async function handler(req, res) {
       const transacaoDoc = await transacaoRef.get();
 
       if (!transacaoDoc.exists) {
+        console.error(`❌ Transação ${transacaoId} não existe no banco de dados.`);
         return res.status(404).json({ error: "Transação não encontrada no sistema" });
       }
 
@@ -54,8 +66,11 @@ export default async function handler(req, res) {
 
       // Evita pagar duas vezes
       if (transacao.status === "Aprovado") {
+        console.log("⚠️ Transação já estava aprovada. Ignorando.");
         return res.status(200).json({ message: "Já processado anteriormente" });
       }
+
+      console.log(`✅ Aprovando transação de R$ ${transacao.valor}...`);
 
       // 1. Atualiza status da transação
       await transacaoRef.update({ status: "Aprovado" });
@@ -73,10 +88,12 @@ export default async function handler(req, res) {
         caixaNormalAtual: admin.firestore.FieldValue.increment(transacao.valor)
       });
 
+      console.log("🎉 Sucesso! Saldo liberado.");
       return res.status(200).json({ message: "Pagamento aprovado com sucesso" });
     }
 
-    return res.status(200).json({ message: "Status recebido, mas não é aprovação", status: statusPagamento });
+    console.log(`ℹ️ Status ${statusNormalizado} não é de aprovação. Nada a fazer.`);
+    return res.status(200).json({ message: "Status recebido", status: statusNormalizado });
 
   } catch (error) {
     console.error("Erro no webhook:", error);
