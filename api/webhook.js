@@ -20,12 +20,14 @@ module.exports = async function handler(req, res) {
       // Tratamento robusto da chave privada
       let privateKey = process.env.FIREBASE_PRIVATE_KEY;
       
-      // 1. Remove aspas extras se o usuário copiou com aspas do JSON
-      if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
-        privateKey = privateKey.slice(1, -1);
+      // Tenta limpar a chave de várias formas para garantir o formato PEM
+      if (privateKey.startsWith('"')) {
+        try {
+          privateKey = JSON.parse(privateKey);
+        } catch (e) {
+          privateKey = privateKey.replace(/^"|"$/g, '');
+        }
       }
-      
-      // 2. Converte os caracteres literais '\n' em quebras de linha reais
       privateKey = privateKey.replace(/\\n/g, '\n');
 
       admin.initializeApp({
