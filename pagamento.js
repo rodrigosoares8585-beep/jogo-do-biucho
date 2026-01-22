@@ -206,14 +206,16 @@ async function processarPagamentoAutomatico(valor, metodo) {
     try {
       data = JSON.parse(responseText);
     } catch (e) {
-      throw new Error(`Erro na API (${response.status}): ${responseText || 'Resposta vazia do servidor'}`);
+      // Se não for JSON, provavelmente é a página de erro padrão da Vercel (HTML)
+      console.error("Erro não-JSON da API:", responseText);
+      throw new Error(`Erro no Servidor (${response.status}). Verifique os logs da Vercel.`);
     }
 
     if (!response.ok) {
       // Se der erro (ex: Token inválido), mostra alerta e fecha modal
       document.getElementById("modal-pix").style.display = "none";
       if (btnConfirmar) btnConfirmar.innerText = textoOriginalBtn;
-      throw new Error(data.error || "Erro ao comunicar com o banco.");
+      throw new Error(data.error || "Erro desconhecido ao comunicar com o banco.");
     }
 
     // Exibir QR Code Real

@@ -1,14 +1,22 @@
 const admin = require("firebase-admin");
 
 module.exports = async function handler(req, res) {
+  console.log("🚀 API Criar Pix iniciada");
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método não permitido' });
   }
 
   try {
+    // Verificação de segurança do ambiente
+    if (!globalThis.fetch) {
+      throw new Error("A função 'fetch' não está disponível. Atualize a versão do Node.js na Vercel para 18.x ou superior.");
+    }
+
     // Inicialização movida para dentro do handler para capturar erros de configuração
     if (!admin.apps.length) {
       if (!process.env.FIREBASE_PRIVATE_KEY) {
+        console.error("❌ ERRO: FIREBASE_PRIVATE_KEY não encontrada nas variáveis de ambiente.");
         throw new Error("Configuração do Firebase ausente (FIREBASE_PRIVATE_KEY). Verifique as variáveis de ambiente na Vercel.");
       }
       admin.initializeApp({
@@ -23,18 +31,26 @@ module.exports = async function handler(req, res) {
 
     const { transacaoId, valor, usuario } = req.body;
 
+    if (!usuario) {
+      throw new Error("Dados do usuário não recebidos no corpo da requisição.");
+    }
+
     // 1. Buscar Token do PagBank no Firestore (Configurado no Painel Admin)
     const configDoc = await db.collection("configuracoes").doc("pagamentos").get();
     const config = configDoc.data();
 
     if (!config || !config.pagbank || !config.pagbank.token) {
+      console.error("❌ ERRO: Token PagBank não configurado no banco de dados.");
       return res.status(500).json({ error: "Token do PagBank não configurado no Painel Admin." });
     }
 
     const token = config.pagbank.token;
     
     // Monta a URL do Webhook e loga para conferência
-    const webhookUrl = `https://${req.headers.host}/api/webhook`;
+    const host = req.headers.host;
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+    const webhookUrl = `${protocol}://${host}/api/webhook`;
+    
     console.log(`🚀 Criando Pix... Webhook URL configurada: ${webhookUrl}`);
     
     // 2. Montar o pedido para o PagBank
@@ -74,7 +90,9 @@ module.exports = async function handler(req, res) {
 
     if (!response.ok) {
       console.error("Erro PagBank:", JSON.stringify(data));
-      return res.status(400).json({ error: "Erro ao criar Pix no PagBank", details: data });
+      // Retorna a mensagem de erro específica do PagBank se houver
+      const msgErro = data.error_messages ? data.error_messages[0].description : "Erro ao criar Pix no PagBank";
+      return res.status(400).json({ error: msgErro, details: data });
     }
 
     // 4. Extrair dados do QR Code
@@ -87,7 +105,10 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error("Erro interno:", error);
-    return res.status(500).json({ error: error.message });
+    console.error("❌ Erro interno na API:", error);
+    return res.status(500).json({ 
+      error: error.message || "Erro interno no servidor",
+      stack: error.stack 
+    });
   }
 };
