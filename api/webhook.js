@@ -17,8 +17,16 @@ module.exports = async function handler(req, res) {
         return res.status(500).json({ error: "Configuração de servidor ausente" });
       }
       
-      // Limpa a chave privada (remove aspas extras e corrige quebras de linha)
-      const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n').replace(/^"|"$/g, '');
+      // Tratamento robusto da chave privada
+      let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+      
+      // 1. Remove aspas extras se o usuário copiou com aspas do JSON
+      if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+        privateKey = privateKey.slice(1, -1);
+      }
+      
+      // 2. Converte os caracteres literais '\n' em quebras de linha reais
+      privateKey = privateKey.replace(/\\n/g, '\n');
 
       admin.initializeApp({
         credential: admin.credential.cert({
