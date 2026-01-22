@@ -19,11 +19,15 @@ module.exports = async function handler(req, res) {
         console.error("❌ ERRO: FIREBASE_PRIVATE_KEY não encontrada nas variáveis de ambiente.");
         throw new Error("Configuração do Firebase ausente (FIREBASE_PRIVATE_KEY). Verifique as variáveis de ambiente na Vercel.");
       }
+      
+      // Limpa a chave privada (remove aspas extras e corrige quebras de linha)
+      const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n').replace(/^"|"$/g, '');
+
       admin.initializeApp({
         credential: admin.credential.cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+          privateKey: privateKey,
         }),
       });
     }
