@@ -186,6 +186,7 @@ async function processarPagamentoAutomatico(valor, metodo) {
     const qrContainer = document.getElementById("qr-code-pix");
     const chaveContainer = document.getElementById("chave-pix");
     const btnConfirmar = document.querySelector(".btn-confirmar-pix");
+    const textoOriginalBtn = btnConfirmar ? btnConfirmar.innerText : "Já Transferi";
 
     // 2. Chamar API para gerar Pix Real
     qrContainer.innerHTML = '<p style="color:#fff">Gerando Pix no Banco...</p>';
@@ -230,7 +231,6 @@ async function processarPagamentoAutomatico(valor, metodo) {
     `;
     
     // Ajustar botão para estado de "Aguardando"
-    const textoOriginalBtn = btnConfirmar ? btnConfirmar.innerText : "Já Transferi";
     if (btnConfirmar) {
       btnConfirmar.innerText = "⏳ Aguardando Banco...";
     }
