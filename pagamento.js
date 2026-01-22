@@ -160,6 +160,7 @@ function confirmarDeposito(valor, metodo) {
 
 async function processarPagamentoAutomatico(valor, metodo) {
   const usuario = obterUsuario();
+  console.log("🔄 Iniciando processamento de pagamento (v2)...");
   if (!usuario) return alert("Faça login!");
 
   const transacaoId = gerarTransacao();
@@ -179,14 +180,15 @@ async function processarPagamentoAutomatico(valor, metodo) {
   };
 
   try {
-    await aguardarFirebase();
-    await window.setDoc(window.doc(window.db, "transacoes", transacaoId), transacao);
-    
+    // 1. Preparar elementos visuais (Movido para o topo para evitar erro de referência)
     const modal = document.getElementById("modal-pix");
     const qrContainer = document.getElementById("qr-code-pix");
     const chaveContainer = document.getElementById("chave-pix");
     const btnConfirmar = document.querySelector(".btn-confirmar-pix");
     const textoOriginalBtn = btnConfirmar ? btnConfirmar.innerText : "Já Transferi";
+
+    await aguardarFirebase();
+    await window.setDoc(window.doc(window.db, "transacoes", transacaoId), transacao);
 
     // 2. Chamar API para gerar Pix Real
     qrContainer.innerHTML = '<p style="color:#fff">Gerando Pix no Banco...</p>';
