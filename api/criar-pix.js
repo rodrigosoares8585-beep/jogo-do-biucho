@@ -15,29 +15,11 @@ module.exports = async function handler(req, res) {
 
     // Inicialização movida para dentro do handler para capturar erros de configuração
     if (!admin.apps.length) {
-      if (!process.env.FIREBASE_PRIVATE_KEY) {
-        console.error("❌ ERRO: FIREBASE_PRIVATE_KEY não encontrada nas variáveis de ambiente.");
-        throw new Error("Configuração do Firebase ausente (FIREBASE_PRIVATE_KEY). Verifique as variáveis de ambiente na Vercel.");
-      }
-      
-      // Tratamento robusto da chave privada
-      let privateKey = process.env.FIREBASE_PRIVATE_KEY;
-      
-      // Tenta limpar a chave de várias formas para garantir o formato PEM
-      if (privateKey.startsWith('"')) {
-        try {
-          privateKey = JSON.parse(privateKey);
-        } catch (e) {
-          privateKey = privateKey.replace(/^"|"$/g, '');
-        }
-      }
-      privateKey = privateKey.replace(/\\n/g, '\n');
-
       admin.initializeApp({
         credential: admin.credential.cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: privateKey,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
         }),
       });
     }

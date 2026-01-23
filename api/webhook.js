@@ -12,29 +12,11 @@ module.exports = async function handler(req, res) {
   try {
     // 2. Inicialização Segura do Firebase (dentro do try/catch)
     if (!admin.apps.length) {
-      if (!process.env.FIREBASE_PRIVATE_KEY) {
-        console.error("❌ ERRO CRÍTICO: Chave do Firebase não encontrada nas variáveis de ambiente.");
-        return res.status(500).json({ error: "Configuração de servidor ausente" });
-      }
-      
-      // Tratamento robusto da chave privada
-      let privateKey = process.env.FIREBASE_PRIVATE_KEY;
-      
-      // Tenta limpar a chave de várias formas para garantir o formato PEM
-      if (privateKey.startsWith('"')) {
-        try {
-          privateKey = JSON.parse(privateKey);
-        } catch (e) {
-          privateKey = privateKey.replace(/^"|"$/g, '');
-        }
-      }
-      privateKey = privateKey.replace(/\\n/g, '\n');
-
       admin.initializeApp({
         credential: admin.credential.cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: privateKey,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
         }),
       });
     }
