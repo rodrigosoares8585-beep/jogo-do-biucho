@@ -15,18 +15,18 @@ module.exports = async function handler(req, res) {
 
     // Inicialização movida para dentro do handler para capturar erros de configuração
     if (!admin.apps.length) {
-      let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+      // 1. Pega a chave bruta
+      const rawKey = process.env.FIREBASE_PRIVATE_KEY;
+      if (!rawKey) throw new Error("FIREBASE_PRIVATE_KEY ausente");
 
-      // Remove aspas extras se houver (comum ao copiar do .env ou Vercel)
-      if (privateKey && privateKey.startsWith('"')) {
-        privateKey = privateKey.replace(/^"|"$/g, '');
-      }
+      // 2. Limpeza agressiva: converte \n e remove aspas extras
+      const privateKey = rawKey.replace(/\\n/g, '\n').replace(/^"|"$/g, '');
 
       admin.initializeApp({
         credential: admin.credential.cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: privateKey ? privateKey.replace(/\\n/g, '\n') : undefined,
+          privateKey: privateKey,
         }),
       });
     }
