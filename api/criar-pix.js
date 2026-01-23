@@ -15,12 +15,22 @@ module.exports = async function handler(req, res) {
 
     // Inicialização movida para dentro do handler para capturar erros de configuração
     if (!admin.apps.length) {
-      // 1. Pega a chave bruta
-      const rawKey = process.env.FIREBASE_PRIVATE_KEY;
-      if (!rawKey) throw new Error("FIREBASE_PRIVATE_KEY ausente");
+      let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+      if (!privateKey) throw new Error("FIREBASE_PRIVATE_KEY ausente");
 
-      // 2. Limpeza agressiva: converte \n e remove aspas extras
-      const privateKey = rawKey.replace(/\\n/g, '\n').replace(/^"|"$/g, '');
+      // Tratamento robusto para chaves PEM no Vercel
+      if (privateKey.startsWith('"')) {
+        try {
+          // Se começar com aspas, tenta parsear como JSON (resolve \n escapados automaticamente)
+          privateKey = JSON.parse(privateKey);
+        } catch (e) {
+          // Fallback: remove aspas manualmente e corrige \n
+          privateKey = privateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
+        }
+      } else {
+        // Se não tem aspas, apenas corrige \n literais
+        privateKey = privateKey.replace(/\\n/g, '\n');
+      }
 
       admin.initializeApp({
         credential: admin.credential.cert({
