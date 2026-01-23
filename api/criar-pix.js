@@ -18,19 +18,9 @@ module.exports = async function handler(req, res) {
       let privateKey = process.env.FIREBASE_PRIVATE_KEY;
       if (!privateKey) throw new Error("FIREBASE_PRIVATE_KEY ausente");
 
-      // Tratamento robusto para chaves PEM no Vercel
-      if (privateKey.startsWith('"')) {
-        try {
-          // Se começar com aspas, tenta parsear como JSON (resolve \n escapados automaticamente)
-          privateKey = JSON.parse(privateKey);
-        } catch (e) {
-          // Fallback: remove aspas manualmente e corrige \n
-          privateKey = privateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
-        }
-      } else {
-        // Se não tem aspas, apenas corrige \n literais
-        privateKey = privateKey.replace(/\\n/g, '\n');
-      }
+      // Limpeza e formatação da chave privada (Remove aspas e corrige quebras de linha)
+      // .trim() é essencial para evitar erros de parsing do OpenSSL
+      privateKey = privateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n').trim();
 
       admin.initializeApp({
         credential: admin.credential.cert({
