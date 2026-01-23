@@ -15,9 +15,17 @@ module.exports = async function handler(req, res) {
       let privateKey = process.env.FIREBASE_PRIVATE_KEY;
       if (!privateKey) throw new Error("FIREBASE_PRIVATE_KEY ausente");
 
-      // Limpeza e formatação da chave privada (Remove aspas e corrige quebras de linha)
-      // .trim() é essencial para evitar erros de parsing do OpenSSL
-      privateKey = privateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n').trim();
+      // 1. Remove aspas extras
+      privateKey = privateKey.replace(/^"|"$/g, '');
+
+      // 2. Corrige cabeçalhos colados (Erro específico da sua chave)
+      if (privateKey.includes('-----BEGINPRIVATEKEY-----')) {
+        privateKey = privateKey.replace('-----BEGINPRIVATEKEY-----', '-----BEGIN PRIVATE KEY-----\n');
+        privateKey = privateKey.replace('-----ENDPRIVATEKEY-----', '\n-----END PRIVATE KEY-----');
+      }
+
+      // 3. Corrige quebras de linha (\n literal -> real) e espaços
+      privateKey = privateKey.replace(/\\n/g, '\n').trim();
 
       admin.initializeApp({
         credential: admin.credential.cert({
