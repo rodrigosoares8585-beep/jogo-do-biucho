@@ -15,11 +15,18 @@ module.exports = async function handler(req, res) {
 
     // Inicialização movida para dentro do handler para capturar erros de configuração
     if (!admin.apps.length) {
+      let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+      // Remove aspas extras se houver (comum ao copiar do .env ou Vercel)
+      if (privateKey && privateKey.startsWith('"')) {
+        privateKey = privateKey.replace(/^"|"$/g, '');
+      }
+
       admin.initializeApp({
         credential: admin.credential.cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+          privateKey: privateKey ? privateKey.replace(/\\n/g, '\n') : undefined,
         }),
       });
     }
