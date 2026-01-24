@@ -50,6 +50,54 @@ const bichos = [
 
 const container = document.getElementById("bichos");
 
+// ============================
+// CONFIGURAÇÃO DE BANCAS E HORÁRIOS
+// ============================
+// Incluindo as bancas de Pernambuco solicitadas e outras comuns
+const BANCAS = ["Aval", "Caminho da Sorte", "CL", "Nordeste", "Popular", "Lotece", "PT-Rio", "Nacional", "Federal"];
+const HORARIOS = ["12:45", "15:30", "18:30", "11:00", "14:00", "16:00", "18:00", "21:00", "Federal (Qua/Sab)"];
+
+// Cache para armazenar resultados de diferentes bancas extraídos da página
+let resultadosPorBanca = {}; 
+
+function renderizarSeletores() {
+  const div = document.createElement("div");
+  div.className = "config-aposta-container";
+  div.innerHTML = `
+    <h3>⚙️ Configuração da Aposta</h3>
+    <div class="form-grupo">
+      <label for="select-banca" style="color:#fff; font-weight:600; margin-bottom:5px; display:block;">🏦 Escolha a Banca</label>
+      <select id="select-banca" onchange="atualizarResultadoPorBancaSelecionada()" style="width:100%; padding:12px; border-radius:8px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff;">
+        <option value="">Selecione a Banca...</option>
+        ${BANCAS.map(b => `<option value="${b}">${b}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-grupo">
+      <label for="select-horario" style="color:#fff; font-weight:600; margin-bottom:5px; display:block;">⏰ Escolha o Horário</label>
+      <select id="select-horario" style="width:100%; padding:12px; border-radius:8px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff;">
+        <option value="">Selecione o Horário...</option>
+        ${HORARIOS.map(h => `<option value="${h}">${h}</option>`).join('')}
+      </select>
+    </div>
+  `;
+  // Insere antes da grid de bichos
+  if(container) {
+    container.parentNode.insertBefore(div, container);
+  }
+}
+
+function atualizarResultadoPorBancaSelecionada() {
+  const bancaSelecionada = document.getElementById("select-banca").value;
+  if (bancaSelecionada && resultadosPorBanca[bancaSelecionada]) {
+    console.log(`Mostrando resultado armazenado para: ${bancaSelecionada}`);
+    atualizarResultado(resultadosPorBanca[bancaSelecionada].valores);
+    document.getElementById("badge-status").innerText = `● ${bancaSelecionada.toUpperCase()}`;
+  }
+}
+
+// Renderiza os seletores ao iniciar
+renderizarSeletores();
+
 // Função utilitária para formatar moeda profissionalmente
 const formatarBRL = (valor) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -109,6 +157,16 @@ function fazerAposta(indexBicho) {
     return;
   }
 
+  // VALIDAÇÃO DE BANCA E HORÁRIO
+  const banca = document.getElementById("select-banca").value;
+  const horario = document.getElementById("select-horario").value;
+
+  if (!banca || !horario) {
+    alert("⚠️ Por favor, selecione a BANCA e o HORÁRIO no topo da página antes de apostar!");
+    document.querySelector(".config-aposta-container").scrollIntoView({behavior: "smooth"});
+    return;
+  }
+
   const bicho = bichos[indexBicho];
   const inputAposta = document.querySelectorAll(".valor-aposta")[indexBicho];
   const valorAposta = parseFloat(inputAposta.value);
@@ -132,7 +190,9 @@ function fazerAposta(indexBicho) {
     nomeBicho: bicho.nome,
     valor: valorAposta,
     cotacao: cotações.grupo,
-    modalidade: isCercado ? '1ao5' : 'seco'
+    modalidade: isCercado ? '1ao5' : 'seco',
+    banca: banca,
+    horario: horario
   });
 
   inputAposta.value = "";
@@ -177,6 +237,16 @@ function fazerApostaNumerica() {
   const usuario = obterUsuario();
   if (!usuario) {
     alert("Você precisa estar logado para apostar!");
+    return;
+  }
+
+  // VALIDAÇÃO DE BANCA E HORÁRIO
+  const banca = document.getElementById("select-banca").value;
+  const horario = document.getElementById("select-horario").value;
+
+  if (!banca || !horario) {
+    alert("⚠️ Por favor, selecione a BANCA e o HORÁRIO no topo da página antes de apostar!");
+    document.querySelector(".config-aposta-container").scrollIntoView({behavior: "smooth"});
     return;
   }
 
@@ -251,7 +321,9 @@ function fazerApostaNumerica() {
     numero: numeroApostado,
     valor: valorAposta,
     cotacao: cotações[tipo] || 0,
-    modalidade: isCercado ? '1ao5' : 'seco'
+    modalidade: isCercado ? '1ao5' : 'seco',
+    banca: banca,
+    horario: horario
   });
 
   // Limpar campos
@@ -307,11 +379,13 @@ function atualizarBoletim() {
     let descricao = item.tipo === 'grupo' ? `Grupo: ${item.nomeBicho}` : `${item.tipo.toUpperCase()}: ${item.numero}`;
     // Adiciona info da modalidade
     descricao += item.modalidade === '1ao5' ? " (1º ao 5º)" : " (Seco)";
+    const infoExtra = `<div style="font-size:11px; color:#94a3b8; margin-top:2px;">${item.banca} • ${item.horario}</div>`;
 
     return `
       <div class="item-carrinho">
         <div class="item-info">
           <strong>${descricao}</strong>
+          ${infoExtra}
           <span>Valor: ${formatarBRL(item.valor)}</span>
         </div>
         <button class="btn-remover-item" onclick="removerDoCarrinho(${index})">🗑️</button>
@@ -431,7 +505,7 @@ let intervaloTimer = null; // Controle do timer
 async function realizarSorteio() {
   // Pausa o timer e mostra status de extração
   clearInterval(intervaloTimer);
-  timerDisplay.innerText = "🔄 Sincronizando com Lotece...";
+  timerDisplay.innerText = "🔄 Sincronizando Resultados...";
   timerDisplay.style.color = "#00ffd5";
   
   let resultado;
@@ -441,7 +515,7 @@ async function realizarSorteio() {
     resultado = await buscarResultadoLoteriaSonho();
   } catch (erro) {
     console.warn("Aguardando resultado da Lotece...", erro);
-    timerDisplay.innerText = "⚠️ Aguardando conexão...";
+    timerDisplay.innerText = "⚠️ Buscando...";
     timerDisplay.style.color = "#ff6b6b";
     
     // Se falhar, tenta novamente em 10 segundos
@@ -455,11 +529,12 @@ async function realizarSorteio() {
   badge.style.display = "inline-block";
   
   // Identifica o nome do site de onde veio o resultado
-  let nomeFonte = "LOTECE";
+  let nomeFonte = resultado.bancaDetectada || "LOTECE";
   if (resultado.fonte) {
     try {
-      nomeFonte = new URL(resultado.fonte).hostname.replace("www.", "").split(".")[0].toUpperCase();
-    } catch (e) {}
+      // Se não detectou banca específica, usa o domínio
+      if (!resultado.bancaDetectada) nomeFonte = new URL(resultado.fonte).hostname.replace("www.", "").split(".")[0].toUpperCase();
+    } catch (e) { }
   }
 
   const horarioTexto = resultado.horario ? ` ${resultado.horario}` : "";
@@ -668,6 +743,7 @@ function verificarApostas(todosPremios) {
 async function buscarResultadoLoteriaSonho() {
   // Lista de URLs para tentar (Home costuma ser mais atualizada que /resultados)
   const fontes = [
+    'https://bancasdobicho.com.br/estados/jogo-do-bicho-pernambuco',
     'https://lotece.com.br/',
     'https://lotece.com.br/resultados/',
     'https://www.resultadodojogodobicho.com.br/resultado-do-jogo-do-bicho-ceara/',
@@ -724,8 +800,47 @@ async function buscarResultadoLoteriaSonho() {
           continue;
         }
 
+        // ============================================================
+        // PARSER AVANÇADO PARA MÚLTIPLAS BANCAS (PERNAMBUCO/OUTRAS)
+        // ============================================================
+        // Tenta identificar seções de bancas específicas (ex: Aval, Caminho da Sorte)
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlContent, 'text/html');
+        
+        // Procura por títulos que contenham nomes das bancas conhecidas
+        const titulos = doc.querySelectorAll('h2, h3, h4, strong, .titulo-banca');
+        let encontrouBancaEspecifica = false;
+
+        for (let titulo of titulos) {
+          const textoTitulo = (titulo.textContent || "").trim();
+          
+          // Verifica se o título corresponde a uma das nossas bancas
+          const bancaEncontrada = BANCAS.find(b => textoTitulo.toLowerCase().includes(b.toLowerCase()));
+          
+          if (bancaEncontrada) {
+            // Encontrou um título de banca. Tenta achar a tabela/lista IMEDIATAMENTE após este título
+            // Procura nos próximos irmãos ou no container pai
+            let containerBusca = titulo.nextElementSibling;
+            let numerosBanca = [];
+            
+            // Tenta extrair números do elemento seguinte (tabela ou lista)
+            if (containerBusca) {
+              const textoContainer = containerBusca.innerText || containerBusca.textContent || "";
+              // Procura sequências de 4 dígitos
+              const matches = textoContainer.match(/\b\d{4}\b/g);
+              if (matches && matches.length >= 5) {
+                // Filtra anos e pega os primeiros 5 ou 10
+                numerosBanca = matches.map(n => parseInt(n)).filter(n => n < 2023 || n > 2026).slice(0, 10);
+                
+                if (numerosBanca.length >= 5) {
+                  resultadosPorBanca[bancaEncontrada] = { valores: numerosBanca, horario: "Hoje" };
+                  encontrouBancaEspecifica = true;
+                }
+              }
+            }
+          }
+        }
+
         const anoAtual = new Date().getFullYear();
         const premiosEncontrados = [];
 
@@ -780,6 +895,12 @@ async function buscarResultadoLoteriaSonho() {
         // Isso garante que pegamos exatamente o resultado da estrutura correta e ignoramos o resto
         const validosEstrategia1 = premiosEncontrados.filter(n => n !== undefined);
         if (validosEstrategia1.length >= 5) {
+          // Se achamos bancas específicas antes, retornamos a primeira delas ou a genérica
+          if (encontrouBancaEspecifica) {
+             // Retorna a primeira banca encontrada como "principal" mas mantém o cache das outras
+             const primeiraBanca = Object.keys(resultadosPorBanca)[0];
+             return { valores: resultadosPorBanca[primeiraBanca].valores, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: primeiraBanca };
+          }
           return { valores: validosEstrategia1, origem: 'real', horario: horarioDetectado, fonte: url };
         }
 
@@ -832,6 +953,10 @@ async function buscarResultadoLoteriaSonho() {
         const premiosFinais = premiosEncontrados.filter(n => n !== undefined);
 
         if (premiosFinais.length > 0) {
+          if (encontrouBancaEspecifica) {
+             const primeiraBanca = Object.keys(resultadosPorBanca)[0];
+             return { valores: resultadosPorBanca[primeiraBanca].valores, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: primeiraBanca };
+          }
           console.log("✅ Lista de prêmios extraída:", premiosFinais);
           return { valores: premiosFinais, origem: 'real', horario: horarioDetectado, fonte: url };
         }
@@ -849,6 +974,10 @@ async function buscarResultadoLoteriaSonho() {
             if (unicos.length >= 10) break;
           }
           if (unicos.length > 0) {
+             if (encontrouBancaEspecifica) {
+                const primeiraBanca = Object.keys(resultadosPorBanca)[0];
+                return { valores: resultadosPorBanca[primeiraBanca].valores, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: primeiraBanca };
+             }
              return { valores: unicos, origem: 'real', horario: horarioDetectado, fonte: url };
           }
         }

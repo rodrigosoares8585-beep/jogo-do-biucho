@@ -153,6 +153,32 @@ main {
   text-shadow: 0 0 20px rgba(0,255,213,0.4);
 }
 
+/* CONFIGURAÇÃO DE APOSTA (BANCA E HORÁRIO) */
+.config-aposta-container {
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 20px;
+  padding: 25px;
+  margin-bottom: 30px;
+  border: 1px solid rgba(0, 255, 213, 0.2);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.config-aposta-container h3 {
+  grid-column: 1 / -1;
+  margin: 0 0 15px 0;
+  color: #00ffd5;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
 .bichos {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -1657,6 +1683,12 @@ footer {
 
   .trans-direita {
     text-align: left;
+  }
+}
+
+@media (max-width: 600px) {
+  .config-aposta-container {
+    grid-template-columns: 1fr;
   }
 }
 
