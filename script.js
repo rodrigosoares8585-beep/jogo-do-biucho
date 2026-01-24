@@ -55,14 +55,16 @@ const container = document.getElementById("bichos");
 // ============================
 // Incluindo as bancas de Pernambuco solicitadas e outras comuns
 const BANCAS = [
-  // LISTA ESTRITA DE BANCAS (Sem nomes de estados genéricos para evitar confusão)
-  "Aval", "Caminho da Sorte", "CL", "Nordeste", "Popular", // Pernambuco
-  "Paratodos", "Lotece", "Lotep", "LBR", "Look", "Nacional", "Federal",
-  "Alvorada", "Minas Dia", "Minas Noite", "Preferida", "Salvation", 
-  "Maluca", "Corujinha", "Amnésia", "Ouro", "União", "Adesp", "Global", "Local",
-  "Aliança", "Bandeirantes", "Águia", "Fênix", "Ponte", "Sorte", "Confiança",
+  // LISTA ATUALIZADA COM AS BANCAS DOS LINKS ESPECÍFICOS
+  "Abaese", "Itabaiana", "Aval", "Bandeirantes", "Bicho RS", "Caminho da Sorte", 
+  "Deu no Poste", "Aliança", "Federal", "Look", "Lotece", "Lotep", "Popular", 
+  "Tradicional", "LBR", "Maluca", "Minas", "Nordeste", "Paratodos", 
+  "PT-Rio", "PT Rio", "PT-SP", "PT SP", 
+  // Outras bancas e variações comuns
+  "CL", "Preferida", "Salvation", "Corujinha", "Amnésia", "Ouro", "União", 
+  "Adesp", "Global", "Local", "Águia", "Fênix", "Ponte", "Sorte", "Confiança",
   "Redenção", "Vila", "Capital", "Cotepe", "Potiguar", "Jangadeiro", "Seninha",
-  "PT-Rio", "PT Rio", "PT-SP", "PT SP", "PTM", "PT", "PTV", "PTN", "COR"
+  "PTM", "PT", "PTV", "PTN", "COR"
 ];
 const HORARIOS = ["12:45", "15:30", "18:30", "11:00", "14:00", "16:00", "18:00", "21:00", "Federal (Qua/Sab)"];
 
@@ -785,27 +787,28 @@ function renderizarGradeResultados() {
 // Função Principal: Busca o primeiro resultado rápido e dispara o resto em background
 async function buscarResultadoLoteriaSonho() {
   const fontes = [
-    // Prioridade para bancas específicas e rápidas
-    'https://bancasdobicho.com.br/bancas',
-    'https://bancasdobicho.com.br/estados/jogo-do-bicho-bahia',
-    'https://bancasdobicho.com.br/estados/jogo-do-bicho-brasil',
-    'https://bancasdobicho.com.br/estados/jogo-do-bicho-distrito-federal',
-    'https://bancasdobicho.com.br/estados/jogo-do-bicho-goias',
-    'https://bancasdobicho.com.br/estados/jogo-do-bicho-minas-gerais',
-    'https://bancasdobicho.com.br/estados/jogo-do-bicho-paraiba',
-    'https://bancasdobicho.com.br/estados/jogo-do-bicho-rio-de-janeiro',
-    'https://bancasdobicho.com.br/estados/jogo-do-bicho-rio-grande-do-sul',
-    'https://bancasdobicho.com.br/estados/jogo-do-bicho-sao-paulo',
-    'https://bancasdobicho.com.br/estados/jogo-do-bicho-sergipe',
-    'https://bancasdobicho.com.br/estados/jogo-do-bicho-pernambuco',
-    'https://lotece.com.br/',
-    'https://lotece.com.br/resultados/',
-    'https://www.resultadodojogodobicho.com.br/resultado-do-jogo-do-bicho-ceara/',
-    'https://www.jogodobicho.net/lotece',
-    'https://deunoposte.online/lotece/',
-    'https://resultadojogodobicho.com/ce/lotece',
-    'https://www.loteriasbr.com/jogo-do-bicho/lotece',
-    'https://www.ojogodobicho.com/deu_no_poste.htm'
+    // LINKS DIRETOS POR BANCA (Extração Precisa)
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-abaese-itabaiana-paratodos',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-aval-pernambuco',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-bandeirantes-sp',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-bicho-rs',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-caminho-da-sorte',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-deu-no-poste',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-extracao-online-alianca',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-federal-do-brasil',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-look-loterias',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-lotece-loteria-dos-sonhos',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-lotep',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-loteria-popular',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-loteria-tradicional',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-loterias-br-lbr',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-maluca-bahia',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-minas-mg',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-nordeste-montes-claros',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-paratodos-bahia',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-paratodos-pb',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-pt-rio',
+    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-pt-sp'
   ];
 
   // Configuração de proxies para contornar bloqueios (CORS)
