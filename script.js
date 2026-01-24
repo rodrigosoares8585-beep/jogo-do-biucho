@@ -56,9 +56,7 @@ const container = document.getElementById("bichos");
 // Incluindo as bancas de Pernambuco solicitadas e outras comuns
 const BANCAS = [
   // Bancas Específicas (Prioridade Alta - O sistema vai preferir estes nomes)
-  "Aval", "Caminho da Sorte", "CL", "Nordeste", "Popular", "Lotece", "Lotep", "LBR", "Paratodos", "Alvorada", "Minas", "Look", "Nacional", "Federal", "Bandeirantes", "Aliança", "Preferida", "Salvation", "Maluca", "Corujinha", "Amnésia", "Ouro", "União",
-  // Estados / Genéricos (Prioridade Baixa - Só usa se não achar o nome da banca)
-  "PT-Rio", "Bahia", "Goiás", "Paraíba", "Rio Grande do Sul", "São Paulo", "Sergipe", "Brasília", "Ceará"
+  "Aval", "Caminho da Sorte", "CL", "Nordeste", "Popular", "Lotece", "Lotep", "LBR", "Paratodos", "Alvorada", "Minas", "Look", "Nacional", "Federal", "Bandeirantes", "Aliança", "Preferida", "Salvation", "Maluca", "Corujinha", "Amnésia", "Ouro", "União", "PT-Rio", "PT-SP", "Adesp", "Global", "Local"
 ];
 const HORARIOS = ["12:45", "15:30", "18:30", "11:00", "14:00", "16:00", "18:00", "21:00", "Federal (Qua/Sab)"];
 
