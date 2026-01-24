@@ -1151,11 +1151,8 @@ async function processarFonte(url, proxies) {
              const valoresGrade = resultadoFinal.slice(0, 5);
              resultadosPorBanca[bancaDestaUrl] = { valores: valoresGrade, horario: horarioDetectado || "Hoje" };
              if (bancaDestaUrl) {
-                return { valores: resultadosPorBanca[bancaDestaUrl].valores, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: bancaDestaUrl };
                 return { valores: valoresGrade, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: bancaDestaUrl };
              }
-             return { valores: unicos, origem: 'real', horario: horarioDetectado, fonte: url };
-          }
              return { valores: valoresGrade, origem: 'real', horario: horarioDetectado, fonte: url };
         }
 
