@@ -55,12 +55,13 @@ const container = document.getElementById("bichos");
 // ============================
 // Incluindo as bancas de Pernambuco solicitadas e outras comuns
 const BANCAS = [
-  // LISTA ATUALIZADA COM AS BANCAS DOS LINKS ESPECÍFICOS
+  // 1. BANCAS ESPECÍFICAS (Ordem importa: nomes compostos primeiro!)
+  "Paratodos Bahia", "Paratodos PB", "Paratodos", 
+  "Minas MG", "Minas Dia", "Minas Noite", "Minas",
   "Abaese", "Itabaiana", "Aval", "Bandeirantes", "Bicho RS", "Caminho da Sorte", 
   "Deu no Poste", "Aliança", "Federal", "Look", "Lotece", "Lotep", "Popular", 
-  "Tradicional", "LBR", "Maluca", "Minas", "Nordeste", "Paratodos", 
+  "Tradicional", "LBR", "Maluca", "Nordeste", 
   "PT-Rio", "PT Rio", "PT-SP", "PT SP", 
-  // Outras bancas e variações comuns
   "CL", "Preferida", "Salvation", "Corujinha", "Amnésia", "Ouro", "União", 
   "Adesp", "Global", "Local", "Águia", "Fênix", "Ponte", "Sorte", "Confiança",
   "Redenção", "Vila", "Capital", "Cotepe", "Potiguar", "Jangadeiro", "Seninha",
@@ -872,6 +873,32 @@ async function buscarBancasRestantes(fontes, proxies) {
   console.log("✅ Busca de background finalizada.");
 }
 
+// Função auxiliar para garantir o nome correto da banca baseado no link
+function obterNomeBancaPelaUrl(url) {
+  if (url.includes("abaese")) return "Abaese";
+  if (url.includes("aval")) return "Aval";
+  if (url.includes("bandeirantes")) return "Bandeirantes";
+  if (url.includes("bicho-rs")) return "Bicho RS";
+  if (url.includes("caminho")) return "Caminho da Sorte";
+  if (url.includes("deu-no-poste")) return "Deu no Poste";
+  if (url.includes("alianca")) return "Aliança";
+  if (url.includes("federal")) return "Federal";
+  if (url.includes("look")) return "Look";
+  if (url.includes("lotece")) return "Lotece";
+  if (url.includes("lotep")) return "Lotep";
+  if (url.includes("popular")) return "Popular";
+  if (url.includes("tradicional")) return "Tradicional";
+  if (url.includes("lbr")) return "LBR";
+  if (url.includes("maluca")) return "Maluca";
+  if (url.includes("minas")) return "Minas";
+  if (url.includes("nordeste")) return "Nordeste";
+  if (url.includes("paratodos-bahia")) return "Paratodos Bahia";
+  if (url.includes("paratodos-pb")) return "Paratodos PB";
+  if (url.includes("pt-rio")) return "PT Rio";
+  if (url.includes("pt-sp")) return "PT SP";
+  return "Outra Banca";
+}
+
 // Função auxiliar que processa UMA única URL
 async function processarFonte(url, proxies) {
   const anoAtual = new Date().getFullYear();
@@ -904,7 +931,8 @@ async function processarFonte(url, proxies) {
         
         // Procura por títulos que contenham nomes das bancas conhecidas
         const titulos = doc.querySelectorAll('h1, h2, h3, h4, h5, h6, strong, b, td, th, .titulo, .banca, span');
-        let bancaDestaUrl = null;
+        // Tenta identificar pelo HTML, se falhar, usa o nome do link
+        let bancaDestaUrl = obterNomeBancaPelaUrl(url);
 
         for (let titulo of titulos) {
           const textoTitulo = (titulo.textContent || "").trim();
@@ -935,7 +963,7 @@ async function processarFonte(url, proxies) {
                 
                 if (numerosBanca.length >= 5) {
                   resultadosPorBanca[bancaEncontrada] = { valores: numerosBanca, horario: "Hoje" };
-                  if (!bancaDestaUrl) bancaDestaUrl = bancaEncontrada;
+                  bancaDestaUrl = bancaEncontrada; // Atualiza com o nome exato achado no HTML se possível
                   break; // Achou, para de procurar
                 }
               }
@@ -998,6 +1026,8 @@ async function processarFonte(url, proxies) {
         // Isso garante que pegamos exatamente o resultado da estrutura correta e ignoramos o resto
         const validosEstrategia1 = premiosEncontrados.filter(n => n !== undefined);
         if (validosEstrategia1.length >= 5) {
+          // Salva na grade antes de retornar
+          resultadosPorBanca[bancaDestaUrl] = { valores: validosEstrategia1, horario: horarioDetectado || "Hoje" };
           if (bancaDestaUrl) {
              return { valores: resultadosPorBanca[bancaDestaUrl].valores, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: bancaDestaUrl };
           }
@@ -1053,6 +1083,8 @@ async function processarFonte(url, proxies) {
         const premiosFinais = premiosEncontrados.filter(n => n !== undefined);
 
         if (premiosFinais.length > 0) {
+          // Salva na grade antes de retornar
+          resultadosPorBanca[bancaDestaUrl] = { valores: premiosFinais, horario: horarioDetectado || "Hoje" };
           if (bancaDestaUrl) {
              return { valores: resultadosPorBanca[bancaDestaUrl].valores, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: bancaDestaUrl };
           }
@@ -1072,6 +1104,8 @@ async function processarFonte(url, proxies) {
             if (unicos.length >= 10) break;
           }
           if (unicos.length > 0) {
+             // Salva na grade antes de retornar
+             resultadosPorBanca[bancaDestaUrl] = { valores: unicos, horario: horarioDetectado || "Hoje" };
              if (bancaDestaUrl) {
                 return { valores: resultadosPorBanca[bancaDestaUrl].valores, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: bancaDestaUrl };
              }
