@@ -773,10 +773,10 @@ function renderizarGradeResultados() {
   }).join('');
 }
 
-// Função para buscar dados externos (Simulação de API)
+// Função Principal: Busca o primeiro resultado rápido e dispara o resto em background
 async function buscarResultadoLoteriaSonho() {
-  // Lista de URLs para tentar (Home costuma ser mais atualizada que /resultados)
   const fontes = [
+    // Prioridade para bancas específicas e rápidas
     'https://bancasdobicho.com.br/estados/jogo-do-bicho-bahia',
     'https://bancasdobicho.com.br/estados/jogo-do-bicho-brasil',
     'https://bancasdobicho.com.br/estados/jogo-do-bicho-distrito-federal',
@@ -825,17 +825,46 @@ async function buscarResultadoLoteriaSonho() {
   // Limpa o cache de bancas antes de começar uma nova busca completa
   resultadosPorBanca = {};
 
-  let resultadoPrincipal = null; // Armazena o primeiro resultado válido para ser o destaque
+  // Tenta encontrar o resultado principal o mais rápido possível
+  for (let i = 0; i < fontes.length; i++) {
+    const url = fontes[i];
+    // Processa a fonte atual
+    const resultado = await processarFonte(url, proxies);
+    
+    if (resultado) {
+      // SUCESSO! Retorna este resultado imediatamente para a tela principal
+      
+      // Mas antes, dispara a busca nas outras fontes em BACKGROUND (sem await)
+      // para preencher a grade de bancas aos poucos
+      const fontesRestantes = fontes.slice(i + 1);
+      buscarBancasRestantes(fontesRestantes, proxies);
+      
+      return resultado;
+    }
+  }
+  
+  throw new Error("Não foi possível extrair de nenhuma fonte");
+}
 
+// Função que roda em segundo plano para preencher a grade
+async function buscarBancasRestantes(fontes, proxies) {
+  console.log("🔄 Buscando outras bancas em segundo plano...");
   for (const url of fontes) {
-    let sucessoNestaUrl = false; // Controle para pular proxies se a URL já funcionou
+    // Processa e se achar algo novo, atualiza a grade visualmente
+    const achou = await processarFonte(url, proxies);
+    if (achou) {
+      renderizarGradeResultados();
+    }
+  }
+  console.log("✅ Busca de background finalizada.");
+}
 
-    for (const proxy of proxies) {
-      if (sucessoNestaUrl) break;
+// Função auxiliar que processa UMA única URL
+async function processarFonte(url, proxies) {
+  const anoAtual = new Date().getFullYear();
 
+  for (const proxy of proxies) {
       try {
-        console.log(`Tentando extrair de: ${url} via proxy...`);
-        
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
         
@@ -862,7 +891,7 @@ async function buscarResultadoLoteriaSonho() {
         
         // Procura por títulos que contenham nomes das bancas conhecidas
         const titulos = doc.querySelectorAll('h2, h3, h4, strong, .titulo-banca');
-        let encontrouBancaEspecifica = false;
+        let bancaDestaUrl = null;
 
         for (let titulo of titulos) {
           const textoTitulo = (titulo.textContent || "").trim();
@@ -887,14 +916,13 @@ async function buscarResultadoLoteriaSonho() {
                 
                 if (numerosBanca.length >= 5) {
                   resultadosPorBanca[bancaEncontrada] = { valores: numerosBanca, horario: "Hoje" };
-                  encontrouBancaEspecifica = true;
+                  if (!bancaDestaUrl) bancaDestaUrl = bancaEncontrada;
                 }
               }
             }
           }
         }
 
-        const anoAtual = new Date().getFullYear();
         const premiosEncontrados = [];
 
         // Tenta extrair o horário do sorteio (ex: 14:00, 19h)
@@ -948,18 +976,10 @@ async function buscarResultadoLoteriaSonho() {
         // Isso garante que pegamos exatamente o resultado da estrutura correta e ignoramos o resto
         const validosEstrategia1 = premiosEncontrados.filter(n => n !== undefined);
         if (validosEstrategia1.length >= 5) {
-          // Se ainda não temos um resultado principal, definimos este
-          if (!resultadoPrincipal) {
-            if (encontrouBancaEspecifica) {
-               const primeiraBanca = Object.keys(resultadosPorBanca)[0];
-               resultadoPrincipal = { valores: resultadosPorBanca[primeiraBanca].valores, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: primeiraBanca };
-            } else {
-               resultadoPrincipal = { valores: validosEstrategia1, origem: 'real', horario: horarioDetectado, fonte: url };
-            }
+          if (bancaDestaUrl) {
+             return { valores: resultadosPorBanca[bancaDestaUrl].valores, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: bancaDestaUrl };
           }
-          // Marca sucesso para esta URL e vai para a próxima fonte (não para a função inteira)
-          sucessoNestaUrl = true;
-          break;
+          return { valores: validosEstrategia1, origem: 'real', horario: horarioDetectado, fonte: url };
         }
 
         // ESTRATÉGIA 2: Busca sequencial de prêmios (1º ao 10º)
@@ -1011,16 +1031,10 @@ async function buscarResultadoLoteriaSonho() {
         const premiosFinais = premiosEncontrados.filter(n => n !== undefined);
 
         if (premiosFinais.length > 0) {
-          if (!resultadoPrincipal) {
-            if (encontrouBancaEspecifica) {
-               const primeiraBanca = Object.keys(resultadosPorBanca)[0];
-               resultadoPrincipal = { valores: resultadosPorBanca[primeiraBanca].valores, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: primeiraBanca };
-            } else {
-               resultadoPrincipal = { valores: premiosFinais, origem: 'real', horario: horarioDetectado, fonte: url };
-            }
+          if (bancaDestaUrl) {
+             return { valores: resultadosPorBanca[bancaDestaUrl].valores, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: bancaDestaUrl };
           }
-          sucessoNestaUrl = true;
-          break;
+          return { valores: premiosFinais, origem: 'real', horario: horarioDetectado, fonte: url };
         }
 
         // FALLBACK: Se não achou com posições, pega os primeiros 10 números de 4 dígitos encontrados
@@ -1036,29 +1050,18 @@ async function buscarResultadoLoteriaSonho() {
             if (unicos.length >= 10) break;
           }
           if (unicos.length > 0) {
-             if (!resultadoPrincipal) {
-               if (encontrouBancaEspecifica) {
-                  const primeiraBanca = Object.keys(resultadosPorBanca)[0];
-                  resultadoPrincipal = { valores: resultadosPorBanca[primeiraBanca].valores, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: primeiraBanca };
-               } else {
-                  resultadoPrincipal = { valores: unicos, origem: 'real', horario: horarioDetectado, fonte: url };
-               }
+             if (bancaDestaUrl) {
+                return { valores: resultadosPorBanca[bancaDestaUrl].valores, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: bancaDestaUrl };
              }
-             sucessoNestaUrl = true;
-             break;
+             return { valores: unicos, origem: 'real', horario: horarioDetectado, fonte: url };
           }
         }
 
       } catch (e) {
-        console.warn(`Falha ao tentar ${url}:`, e);
+        // console.warn(`Falha ao tentar ${url}:`, e); // Silencia erros individuais para não poluir
       }
     }
-  }
-
-  // Retorna o resultado principal encontrado (se houver), mas agora resultadosPorBanca estará cheio
-  if (resultadoPrincipal) return resultadoPrincipal;
-  
-  throw new Error("Não foi possível extrair de nenhuma fonte");
+    return null; // Se falhar todos proxies desta URL
 }
 
 // ============================
