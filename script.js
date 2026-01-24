@@ -62,7 +62,7 @@ const BANCAS = [
   "Maluca", "Corujinha", "Amnésia", "Ouro", "União", "Adesp", "Global", "Local",
   "Aliança", "Bandeirantes", "Águia", "Fênix", "Ponte", "Sorte", "Confiança",
   "Redenção", "Vila", "Capital", "Cotepe", "Potiguar", "Jangadeiro", "Seninha",
-  "PT-Rio", "PT-SP", "PTM", "PT", "PTV", "PTN", "COR"
+  "PT-Rio", "PT Rio", "PT-SP", "PT SP", "PTM", "PT", "PTV", "PTN", "COR"
 ];
 const HORARIOS = ["12:45", "15:30", "18:30", "11:00", "14:00", "16:00", "18:00", "21:00", "Federal (Qua/Sab)"];
 
@@ -920,13 +920,15 @@ async function processarFonte(url, proxies) {
             let tentativas = 0;
             
             // Tenta extrair números dos elementos seguintes (tabela ou lista)
-            while (containerBusca && tentativas < 5) {
+            while (containerBusca && tentativas < 20) {
               const textoContainer = containerBusca.innerText || containerBusca.textContent || "";
               // Procura sequências de 4 dígitos
               const matches = textoContainer.match(/\b\d{4}\b/g);
-              if (matches && matches.length >= 5) {
-                // Filtra anos e pega os primeiros 5 ou 10
-                numerosBanca = matches.map(n => parseInt(n)).filter(n => n < 2023 || n > 2026).slice(0, 5);
+              if (matches) {
+                const validos = matches.map(n => parseInt(n)).filter(n => n < 2023 || n > 2026);
+                for (const num of validos) {
+                   if (numerosBanca.length < 5) numerosBanca.push(num);
+                }
                 
                 if (numerosBanca.length >= 5) {
                   resultadosPorBanca[bancaEncontrada] = { valores: numerosBanca, horario: "Hoje" };
