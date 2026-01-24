@@ -955,10 +955,6 @@ async function processarFonte(url, proxies) {
               const textoContainer = containerBusca.innerText || containerBusca.textContent || "";
               // Procura sequências de 4 dígitos
               const matches = textoContainer.match(/\b\d{4}\b/g);
-              // Limpa pontos (ex: 1.234 -> 1234)
-              const textoContainer = (containerBusca.innerText || containerBusca.textContent || "").replace(/\./g, '');
-              // Procura sequências de 3 ou 4 dígitos
-              const matches = textoContainer.match(/\b\d{3,4}\b/g);
               if (matches) {
                 const validos = matches.map(n => parseInt(n)).filter(n => n < 2023 || n > 2026);
                 for (const num of validos) {
@@ -969,8 +965,6 @@ async function processarFonte(url, proxies) {
                   resultadosPorBanca[bancaEncontrada] = { valores: numerosBanca, horario: "Hoje" };
                   bancaDestaUrl = bancaEncontrada; // Atualiza com o nome exato achado no HTML se possível
                   break; // Achou, para de procurar
-                  bancaDestaUrl = bancaEncontrada; 
-                  break; 
                 }
               }
               containerBusca = containerBusca.nextElementSibling;
@@ -1000,17 +994,6 @@ async function processarFonte(url, proxies) {
            const bodyText = doc.body.textContent || doc.body.innerText || "";
            const matchBody = bodyText.match(regexHorario);
            if (matchBody) horarioDetectado = matchBody[0].replace(/\s/g, '').toLowerCase();
-        }
-
-        // SE O PARSER ESPECÍFICO JÁ ACHOU TUDO, RETORNA LOGO (Evita sobrescrever com dados parciais)
-        if (bancaDestaUrl && resultadosPorBanca[bancaDestaUrl] && resultadosPorBanca[bancaDestaUrl].valores.length >= 5) {
-             return { 
-                 valores: resultadosPorBanca[bancaDestaUrl].valores, 
-                 origem: 'real', 
-                 horario: horarioDetectado || "Hoje", 
-                 fonte: url, 
-                 bancaDetectada: bancaDestaUrl 
-             };
         }
 
         // ESTRATÉGIA 1: Busca por classes específicas (.premio e .numeros)
@@ -1057,18 +1040,14 @@ async function processarFonte(url, proxies) {
         
         for (let linha of linhas) {
           const texto = (linha.textContent || linha.innerText || "").replace(/\s+/g, ' ').trim();
-          // Limpa pontos para garantir match
-          const texto = (linha.textContent || linha.innerText || "").replace(/\./g, '').replace(/\s+/g, ' ').trim();
           // Regex mais flexível para capturar posição (1-10) e o milhar (4 dígitos)
           // Aceita "1º 1234", "1 1234", "1º Prêmio: 1234", "1• 1234", "1º 5.354"
           const match = texto.match(/(?:^|\D)(\d{1,2})[ºo°ª]?\s*(?:Prêmio|Premio)?\s*[:.•-]?\s*([\d.]+)/i);
-          const match = texto.match(/(?:^|\D)(\d{1,2})[ºo°ª]?\s*(?:Prêmio|Premio)?\s*[:.•-]?\s*(\d{3,4})/i);
           
           if (match) {
             const pos = parseInt(match[1]);
             const rawNum = match[2].replace(/\D/g, ''); // Remove pontos
             if (rawNum.length !== 4) continue;
-            const rawNum = match[2]; 
             const num = parseInt(rawNum);
             
             // Valida se não é ano e se a posição é válida (1 a 10)
@@ -1115,45 +1094,23 @@ async function processarFonte(url, proxies) {
         // FALLBACK: Se não achou com posições, pega os primeiros 10 números de 4 dígitos encontrados
         const textoPagina = doc.body.textContent || doc.body.innerText || "";
         const todosMilhares = textoPagina.match(/\b\d{4}\b/g);
-        // FALLBACK: Se não achou com posições (ou achou poucos), pega os primeiros números encontrados na página
-        let premiosFallback = [];
-        const textoPagina = (doc.body.textContent || doc.body.innerText || "").replace(/\./g, '');
-        const todosMilhares = textoPagina.match(/\b\d{3,4}\b/g);
-        
         if (todosMilhares) {
           const unicos = [];
           for (let numStr of todosMilhares) {
             const num = parseInt(numStr);
             if (num < anoAtual - 1 || num > anoAtual + 1) {
               if (!unicos.includes(num)) unicos.push(num);
-               unicos.push(num);
             }
             if (unicos.length >= 10) break;
           }
           if (unicos.length > 0) {
              // Salva na grade antes de retornar
              resultadosPorBanca[bancaDestaUrl] = { valores: unicos, horario: horarioDetectado || "Hoje" };
-          premiosFallback = unicos;
-        }
-
-        // DECISÃO FINAL: Qual resultado usar?
-        let resultadoFinal = [];
-        
-        if (premiosFinais.length >= 5) {
-            resultadoFinal = premiosFinais;
-        } else if (premiosFallback.length >= 5) {
-            resultadoFinal = premiosFallback;
-        } else {
-            resultadoFinal = premiosFinais.length > 0 ? premiosFinais : premiosFallback;
-        }
-
-        if (resultadoFinal.length > 0) {
-             const valoresGrade = resultadoFinal.slice(0, 5);
-             resultadosPorBanca[bancaDestaUrl] = { valores: valoresGrade, horario: horarioDetectado || "Hoje" };
              if (bancaDestaUrl) {
-                return { valores: valoresGrade, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: bancaDestaUrl };
+                return { valores: resultadosPorBanca[bancaDestaUrl].valores, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: bancaDestaUrl };
              }
-             return { valores: valoresGrade, origem: 'real', horario: horarioDetectado, fonte: url };
+             return { valores: unicos, origem: 'real', horario: horarioDetectado, fonte: url };
+          }
         }
 
       } catch (e) {
