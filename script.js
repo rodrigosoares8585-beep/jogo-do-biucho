@@ -792,6 +792,7 @@ function renderizarGradeResultados() {
 async function buscarResultadoLoteriaSonho() {
   const fontes = [
     // Prioridade para bancas específicas e rápidas
+    'https://bancasdobicho.com.br/bancas',
     'https://bancasdobicho.com.br/estados/jogo-do-bicho-bahia',
     'https://bancasdobicho.com.br/estados/jogo-do-bicho-brasil',
     'https://bancasdobicho.com.br/estados/jogo-do-bicho-distrito-federal',
