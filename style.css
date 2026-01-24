@@ -1693,6 +1693,55 @@ footer {
 }
 
 /* ========================= */
+/* GRADE DE BANCAS (1 ao 5)  */
+/* ========================= */
+.grade-bancas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 15px;
+  margin-bottom: 40px;
+  animation: fadeInUp 0.5s ease;
+}
+
+.card-banca-mini {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(0, 255, 213, 0.2);
+  border-radius: 12px;
+  padding: 15px;
+  backdrop-filter: blur(5px);
+}
+
+.card-banca-mini h4 {
+  color: #00ffd5;
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  padding-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+.linha-result {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 6px;
+  color: #cbd5e1;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  padding-bottom: 2px;
+}
+
+.linha-result:last-child {
+  border-bottom: none;
+}
+
+.linha-result strong {
+  color: #fff;
+  font-family: 'Inter', monospace;
+  font-weight: 600;
+}
+
+/* ========================= */
 /* CONFIRMAÇÕES DE PAGAMENTOS */
 /* ========================= */
 

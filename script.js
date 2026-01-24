@@ -54,7 +54,7 @@ const container = document.getElementById("bichos");
 // CONFIGURAÇÃO DE BANCAS E HORÁRIOS
 // ============================
 // Incluindo as bancas de Pernambuco solicitadas e outras comuns
-const BANCAS = ["Aval", "Caminho da Sorte", "CL", "Nordeste", "Popular", "Lotece", "PT-Rio", "Nacional", "Federal"];
+const BANCAS = ["Aval", "Caminho da Sorte", "CL", "Nordeste", "Popular", "Lotece", "PT-Rio", "Nacional", "Federal", "Bahia", "Paratodos", "Goiás", "Look", "Minas", "Alvorada", "Paraíba", "Lotep", "Rio Grande do Sul", "São Paulo", "Bandeirantes", "Sergipe", "Brasília", "LBR"];
 const HORARIOS = ["12:45", "15:30", "18:30", "11:00", "14:00", "16:00", "18:00", "21:00", "Federal (Qua/Sab)"];
 
 // Cache para armazenar resultados de diferentes bancas extraídos da página
@@ -570,6 +570,9 @@ async function realizarSorteio() {
   // Atualiza histórico visual
   atualizarHistorico(resultado);
 
+  // Renderiza a grade com todas as bancas encontradas separadamente
+  renderizarGradeResultados();
+
   // Reinicia o ciclo
   tempoRestante = 30; // Aguarda 30s para próxima verificação
   timerDisplay.style.color = "#ffd166";
@@ -739,10 +742,51 @@ function verificarApostas(todosPremios) {
   localStorage.removeItem("apostasPendentes");
 }
 
+function renderizarGradeResultados() {
+  let container = document.getElementById("grade-bancas");
+  
+  // Cria o container se não existir
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "grade-bancas";
+    container.className = "grade-bancas";
+    // Insere logo após o resultado principal
+    const mainResult = document.getElementById("resultado");
+    if (mainResult) mainResult.parentNode.insertBefore(container, mainResult.nextSibling);
+  }
+
+  container.innerHTML = Object.keys(resultadosPorBanca).map(banca => {
+    const dados = resultadosPorBanca[banca];
+    return `
+      <div class="card-banca-mini">
+        <h4>${banca}</h4>
+        <div class="numeros-lista">
+          ${dados.valores.map((n, i) => `
+            <div class="linha-result">
+              <span>${i + 1}º</span>
+              <strong>${String(n).padStart(4, '0')}</strong>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 // Função para buscar dados externos (Simulação de API)
 async function buscarResultadoLoteriaSonho() {
   // Lista de URLs para tentar (Home costuma ser mais atualizada que /resultados)
   const fontes = [
+    'https://bancasdobicho.com.br/estados/jogo-do-bicho-bahia',
+    'https://bancasdobicho.com.br/estados/jogo-do-bicho-brasil',
+    'https://bancasdobicho.com.br/estados/jogo-do-bicho-distrito-federal',
+    'https://bancasdobicho.com.br/estados/jogo-do-bicho-goias',
+    'https://bancasdobicho.com.br/estados/jogo-do-bicho-minas-gerais',
+    'https://bancasdobicho.com.br/estados/jogo-do-bicho-paraiba',
+    'https://bancasdobicho.com.br/estados/jogo-do-bicho-rio-de-janeiro',
+    'https://bancasdobicho.com.br/estados/jogo-do-bicho-rio-grande-do-sul',
+    'https://bancasdobicho.com.br/estados/jogo-do-bicho-sao-paulo',
+    'https://bancasdobicho.com.br/estados/jogo-do-bicho-sergipe',
     'https://bancasdobicho.com.br/estados/jogo-do-bicho-pernambuco',
     'https://lotece.com.br/',
     'https://lotece.com.br/resultados/',
@@ -777,6 +821,9 @@ async function buscarResultadoLoteriaSonho() {
       extract: async (res) => await res.text()
     }
   ];
+
+  // Limpa o cache de bancas antes de começar uma nova busca completa
+  resultadosPorBanca = {};
 
   for (const url of fontes) {
     for (const proxy of proxies) {
@@ -830,7 +877,7 @@ async function buscarResultadoLoteriaSonho() {
               const matches = textoContainer.match(/\b\d{4}\b/g);
               if (matches && matches.length >= 5) {
                 // Filtra anos e pega os primeiros 5 ou 10
-                numerosBanca = matches.map(n => parseInt(n)).filter(n => n < 2023 || n > 2026).slice(0, 10);
+                numerosBanca = matches.map(n => parseInt(n)).filter(n => n < 2023 || n > 2026).slice(0, 5);
                 
                 if (numerosBanca.length >= 5) {
                   resultadosPorBanca[bancaEncontrada] = { valores: numerosBanca, horario: "Hoje" };
