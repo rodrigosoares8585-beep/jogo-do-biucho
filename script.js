@@ -55,19 +55,13 @@ const container = document.getElementById("bichos");
 // ============================
 // Incluindo as bancas de Pernambuco solicitadas e outras comuns
 const BANCAS = [
-  // 1. BANCAS ESPECÍFICAS (Prioridade Máxima - O sistema pega estes primeiro)
+  // LISTA ESTRITA DE BANCAS (Sem nomes de estados genéricos para evitar confusão)
   "Aval", "Caminho da Sorte", "CL", "Nordeste", "Popular", // Pernambuco
   "Paratodos", "Lotece", "Lotep", "LBR", "Look", "Nacional", "Federal",
   "Alvorada", "Minas Dia", "Minas Noite", "Preferida", "Salvation", 
   "Maluca", "Corujinha", "Amnésia", "Ouro", "União", "Adesp", "Global", "Local",
   "Aliança", "Bandeirantes", "Águia", "Fênix", "Ponte", "Sorte", "Confiança",
   "Redenção", "Vila", "Capital", "Cotepe", "Potiguar", "Jangadeiro", "Seninha",
-  
-  // 2. ESTADOS / GENÉRICOS (Prioridade Menor - Usados se não achar o nome específico acima)
-  "Bahia", "Goiás", "Paraíba", "Sergipe", "Brasília", "Ceará", "Minas Gerais", "Minas",
-  "Rio de Janeiro", "Rio", "São Paulo", "SP", "Paraná", "Rio Grande do Sul", "RS",
-  "Alagoas", "Maranhão", "Piauí", "Tocantins", "Rondônia", "Roraima", "Amapá", "Acre",
-  "Mato Grosso", "Mato Grosso do Sul", "Espírito Santo", "Santa Catarina",
   "PT-Rio", "PT-SP", "PTM", "PT", "PTV", "PTN", "COR"
 ];
 const HORARIOS = ["12:45", "15:30", "18:30", "11:00", "14:00", "16:00", "18:00", "21:00", "Federal (Qua/Sab)"];
