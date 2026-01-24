@@ -54,7 +54,12 @@ const container = document.getElementById("bichos");
 // CONFIGURAÇÃO DE BANCAS E HORÁRIOS
 // ============================
 // Incluindo as bancas de Pernambuco solicitadas e outras comuns
-const BANCAS = ["Aval", "Caminho da Sorte", "CL", "Nordeste", "Popular", "Lotece", "PT-Rio", "Nacional", "Federal", "Bahia", "Paratodos", "Goiás", "Look", "Minas", "Alvorada", "Paraíba", "Lotep", "Rio Grande do Sul", "São Paulo", "Bandeirantes", "Sergipe", "Brasília", "LBR"];
+const BANCAS = [
+  // Bancas Específicas (Prioridade Alta - O sistema vai preferir estes nomes)
+  "Aval", "Caminho da Sorte", "CL", "Nordeste", "Popular", "Lotece", "Lotep", "LBR", "Paratodos", "Alvorada", "Minas", "Look", "Nacional", "Federal", "Bandeirantes", "Aliança", "Preferida", "Salvation", "Maluca", "Corujinha", "Amnésia", "Ouro", "União",
+  // Estados / Genéricos (Prioridade Baixa - Só usa se não achar o nome da banca)
+  "PT-Rio", "Bahia", "Goiás", "Paraíba", "Rio Grande do Sul", "São Paulo", "Sergipe", "Brasília", "Ceará"
+];
 const HORARIOS = ["12:45", "15:30", "18:30", "11:00", "14:00", "16:00", "18:00", "21:00", "Federal (Qua/Sab)"];
 
 // Cache para armazenar resultados de diferentes bancas extraídos da página
@@ -901,12 +906,13 @@ async function processarFonte(url, proxies) {
           
           if (bancaEncontrada) {
             // Encontrou um título de banca. Tenta achar a tabela/lista IMEDIATAMENTE após este título
-            // Procura nos próximos irmãos ou no container pai
+            // Procura nos próximos irmãos (aumentado alcance para pular datas/ads)
             let containerBusca = titulo.nextElementSibling;
             let numerosBanca = [];
+            let tentativas = 0;
             
-            // Tenta extrair números do elemento seguinte (tabela ou lista)
-            if (containerBusca) {
+            // Tenta extrair números dos elementos seguintes (tabela ou lista)
+            while (containerBusca && tentativas < 5) {
               const textoContainer = containerBusca.innerText || containerBusca.textContent || "";
               // Procura sequências de 4 dígitos
               const matches = textoContainer.match(/\b\d{4}\b/g);
@@ -917,8 +923,11 @@ async function processarFonte(url, proxies) {
                 if (numerosBanca.length >= 5) {
                   resultadosPorBanca[bancaEncontrada] = { valores: numerosBanca, horario: "Hoje" };
                   if (!bancaDestaUrl) bancaDestaUrl = bancaEncontrada;
+                  break; // Achou, para de procurar
                 }
               }
+              containerBusca = containerBusca.nextElementSibling;
+              tentativas++;
             }
           }
         }
