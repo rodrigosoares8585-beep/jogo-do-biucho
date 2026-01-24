@@ -55,8 +55,20 @@ const container = document.getElementById("bichos");
 // ============================
 // Incluindo as bancas de Pernambuco solicitadas e outras comuns
 const BANCAS = [
-  // Bancas Específicas (Prioridade Alta - O sistema vai preferir estes nomes)
-  "Aval", "Caminho da Sorte", "CL", "Nordeste", "Popular", "Lotece", "Lotep", "LBR", "Paratodos", "Alvorada", "Minas", "Look", "Nacional", "Federal", "Bandeirantes", "Aliança", "Preferida", "Salvation", "Maluca", "Corujinha", "Amnésia", "Ouro", "União", "PT-Rio", "PT-SP", "Adesp", "Global", "Local"
+  // 1. BANCAS ESPECÍFICAS (Prioridade Máxima - O sistema pega estes primeiro)
+  "Aval", "Caminho da Sorte", "CL", "Nordeste", "Popular", // Pernambuco
+  "Paratodos", "Lotece", "Lotep", "LBR", "Look", "Nacional", "Federal",
+  "Alvorada", "Minas Dia", "Minas Noite", "Preferida", "Salvation", 
+  "Maluca", "Corujinha", "Amnésia", "Ouro", "União", "Adesp", "Global", "Local",
+  "Aliança", "Bandeirantes", "Águia", "Fênix", "Ponte", "Sorte", "Confiança",
+  "Redenção", "Vila", "Capital", "Cotepe", "Potiguar", "Jangadeiro", "Seninha",
+  
+  // 2. ESTADOS / GENÉRICOS (Prioridade Menor - Usados se não achar o nome específico acima)
+  "Bahia", "Goiás", "Paraíba", "Sergipe", "Brasília", "Ceará", "Minas Gerais", "Minas",
+  "Rio de Janeiro", "Rio", "São Paulo", "SP", "Paraná", "Rio Grande do Sul", "RS",
+  "Alagoas", "Maranhão", "Piauí", "Tocantins", "Rondônia", "Roraima", "Amapá", "Acre",
+  "Mato Grosso", "Mato Grosso do Sul", "Espírito Santo", "Santa Catarina",
+  "PT-Rio", "PT-SP", "PTM", "PT", "PTV", "PTN", "COR"
 ];
 const HORARIOS = ["12:45", "15:30", "18:30", "11:00", "14:00", "16:00", "18:00", "21:00", "Federal (Qua/Sab)"];
 
@@ -893,7 +905,7 @@ async function processarFonte(url, proxies) {
         const doc = parser.parseFromString(htmlContent, 'text/html');
         
         // Procura por títulos que contenham nomes das bancas conhecidas
-        const titulos = doc.querySelectorAll('h2, h3, h4, strong, .titulo-banca');
+        const titulos = doc.querySelectorAll('h1, h2, h3, h4, h5, h6, strong, b, td, th, .titulo, .banca, span');
         let bancaDestaUrl = null;
 
         for (let titulo of titulos) {
@@ -903,6 +915,9 @@ async function processarFonte(url, proxies) {
           const bancaEncontrada = BANCAS.find(b => textoTitulo.toLowerCase().includes(b.toLowerCase()));
           
           if (bancaEncontrada) {
+            // Evita falsos positivos em textos muito longos (ex: parágrafos explicativos)
+            if (textoTitulo.length > 50) continue;
+
             // Encontrou um título de banca. Tenta achar a tabela/lista IMEDIATAMENTE após este título
             // Procura nos próximos irmãos (aumentado alcance para pular datas/ads)
             let containerBusca = titulo.nextElementSibling;
