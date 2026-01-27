@@ -366,18 +366,19 @@ function atualizarBoletim() {
   const totalEl = document.getElementById("total-carrinho");
   const ganhoEl = document.getElementById("ganho-carrinho");
 
-  qtdEl.innerText = carrinho.length;
+  if (qtdEl) qtdEl.innerText = carrinho.length;
 
   if (carrinho.length === 0) {
-    container.innerHTML = '<p style="text-align:center; opacity:0.6; font-size:12px;">Nenhuma aposta selecionada</p>';
-    totalEl.innerText = formatarBRL(0);
-    ganhoEl.innerText = formatarBRL(0);
+    if (container) container.innerHTML = '<p style="text-align:center; opacity:0.6; font-size:12px;">Nenhuma aposta selecionada</p>';
+    if (totalEl) totalEl.innerText = formatarBRL(0);
+    if (ganhoEl) ganhoEl.innerText = formatarBRL(0);
     return;
   }
 
   let totalApostado = 0;
   let ganhoPotencial = 0;
 
+  if (container) {
   container.innerHTML = carrinho.map((item, index) => {
     totalApostado += item.valor;
     
@@ -406,9 +407,10 @@ function atualizarBoletim() {
       </div>
     `;
   }).join("");
+  }
 
-  totalEl.innerText = formatarBRL(totalApostado);
-  ganhoEl.innerText = formatarBRL(ganhoPotencial);
+  if (totalEl) totalEl.innerText = formatarBRL(totalApostado);
+  if (ganhoEl) ganhoEl.innerText = formatarBRL(ganhoPotencial);
 }
 
 function removerDoCarrinho(index) {
