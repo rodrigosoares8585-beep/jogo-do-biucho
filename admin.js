@@ -367,8 +367,8 @@ window.salvarMercadoPago = async function() {
 window.salvarPagBank = async function() {
   const dados = {
     pagbank: {
-    email: document.getElementById("pagbank-email").value,
-    token: document.getElementById("pagbank-token").value
+    email: document.getElementById("pagbank-email").value.trim(),
+    token: document.getElementById("pagbank-token").value.trim()
     }
   };
   await salvarConfiguracaoNuvem(dados);

@@ -55,7 +55,12 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: "Token do PagBank não configurado no Painel Admin." });
     }
 
-    const token = config.pagbank.token.trim(); // Remove espaços acidentais
+    let token = config.pagbank.token.trim(); // Remove espaços acidentais
+
+    // CORREÇÃO: Remove "Bearer" se o usuário colou junto com o token
+    if (token.toLowerCase().startsWith("bearer ")) {
+      token = token.slice(7).trim();
+    }
     
     // Monta a URL do Webhook e loga para conferência
     const host = req.headers.host;
