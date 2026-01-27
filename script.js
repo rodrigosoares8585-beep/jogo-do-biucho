@@ -1040,6 +1040,10 @@ async function processarFonte(url, proxies) {
             // Tenta extrair números dos elementos seguintes (tabela ou lista)
             while (containerBusca && tentativas < 20) {
               const textoContainer = containerBusca.innerText || containerBusca.textContent || "";
+              
+              // Pula containers muito pequenos ou vazios (provavelmente separadores)
+              if (textoContainer.length < 3) { containerBusca = containerBusca.nextElementSibling; tentativas++; continue; }
+
               // Procura sequências de 4 dígitos
               const matches = textoContainer.match(/\b\d{4}\b/g);
               if (matches) {
@@ -1109,6 +1113,48 @@ async function processarFonte(url, proxies) {
           }
         }
 
+        // ESTRATÉGIA 1.5: Tabela Estruturada (Novo - Para bancas que usam tables)
+        // Procura tabelas onde uma célula é índice (1-10) e outra é valor (4 dígitos)
+        const tabelas = doc.querySelectorAll('table');
+        for (let tabela of tabelas) {
+          const linhasTabela = tabela.querySelectorAll('tr');
+          
+          for (let tr of linhasTabela) {
+            const tds = tr.querySelectorAll('td, th');
+            if (tds.length >= 2) {
+              let pos = -1;
+              let val = -1;
+
+              for (let td of tds) {
+                const txt = (td.textContent || "").trim();
+                
+                // Verifica se é posição (1º, 1, 1°, etc)
+                const matchPos = txt.match(/^(\d{1,2})[ºo°ª]?$/);
+                if (matchPos) {
+                  const p = parseInt(matchPos[1]);
+                  if (p >= 1 && p <= 10) pos = p;
+                }
+
+                // Verifica se é valor (4 dígitos ou 1.234)
+                // Remove pontos para verificar
+                const txtLimpo = txt.replace(/\./g, '');
+                if (/^\d{4}$/.test(txtLimpo)) {
+                   const v = parseInt(txtLimpo);
+                   // Filtra anos
+                   if (v < anoAtual - 1 || v > anoAtual + 1) val = v;
+                }
+              }
+
+              // Se achou par (Posição + Valor) na mesma linha
+              if (pos !== -1 && val !== -1) {
+                if (premiosEncontrados[pos - 1] === undefined) {
+                  premiosEncontrados[pos - 1] = val;
+                }
+              }
+            }
+          }
+        }
+
         // SE A ESTRATÉGIA 1 (HTML ESPECÍFICO) FUNCIONOU, RETORNA IMEDIATAMENTE
         // Isso garante que pegamos exatamente o resultado da estrutura correta e ignoramos o resto
         const validosEstrategia1 = premiosEncontrados.filter(n => n !== undefined);
@@ -1128,8 +1174,9 @@ async function processarFonte(url, proxies) {
         for (let linha of linhas) {
           const texto = (linha.textContent || linha.innerText || "").replace(/\s+/g, ' ').trim();
           // Regex mais flexível para capturar posição (1-10) e o milhar (4 dígitos)
-          // Aceita "1º 1234", "1 1234", "1º Prêmio: 1234", "1• 1234", "1º 5.354"
-          const match = texto.match(/(?:^|\D)(\d{1,2})[ºo°ª]?\s*(?:Prêmio|Premio)?\s*[:.•-]?\s*([\d.]+)/i);
+          // Aceita "1º 1234", "1 1234", "1º Prêmio: 1234", "1• 1234", "1º 5.354", "1 : 1234"
+          // Melhorado para não pegar datas ou telefones parciais
+          const match = texto.match(/(?:^|\D)(\d{1,2})[ºo°ª]?\s*(?:Prêmio|Premio)?\s*[:.•-]?\s*(\d{1}\.\d{3}|\d{4})(?!\d)/i);
           
           if (match) {
             const pos = parseInt(match[1]);
@@ -1152,7 +1199,7 @@ async function processarFonte(url, proxies) {
         // Isso garante que acharemos os números mesmo se o site mudar as tags HTML
         if (premiosEncontrados.filter(n => n !== undefined).length < 5) {
           const textoTotal = doc.body.textContent || doc.body.innerText || "";
-          const regexGlobal = /(?:^|\D)(\d{1,2})[ºo°ª]?\s*(?:Prêmio|Premio)?\s*[:.•-]?\s*([\d.]+)/gi;
+          const regexGlobal = /(?:^|\D)(\d{1,2})[ºo°ª]?\s*(?:Prêmio|Premio)?\s*[:.•-]?\s*(\d{1}\.\d{3}|\d{4})(?!\d)/gi;
           let m;
           while ((m = regexGlobal.exec(textoTotal)) !== null) {
             const pos = parseInt(m[1]);
