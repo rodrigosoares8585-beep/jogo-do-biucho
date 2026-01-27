@@ -46,6 +46,30 @@ module.exports = async function handler(req, res) {
     let transacaoId = body.reference_id || body.id; 
     let statusPagamento = body.status;
     
+    // DETECÇÃO MERCADO PAGO (Webhook v1/v2)
+    if (body.action === "payment.created" || body.action === "payment.updated" || (body.data && body.data.id)) {
+        const paymentId = body.data ? body.data.id : body.id;
+        console.log(`🔔 Webhook Mercado Pago: Verificando pagamento ${paymentId}...`);
+        
+        // Buscar token para consultar status real
+        const configDoc = await db.collection("configuracoes").doc("pagamentos").get();
+        const config = configDoc.data();
+        
+        if (config && config.mercadopago && config.mercadopago.token) {
+            try {
+                const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+                    headers: { 'Authorization': `Bearer ${config.mercadopago.token}` }
+                });
+                const mpData = await mpRes.json();
+                if (mpData.id) {
+                    transacaoId = mpData.external_reference;
+                    statusPagamento = mpData.status; // approved
+                    console.log(`✅ MP Status: ${statusPagamento} | Ref: ${transacaoId}`);
+                }
+            } catch(e) { console.error("Erro API MP:", e); }
+        }
+    }
+
     // Se for o formato novo (charges), pega de dentro
     if (!statusPagamento && body.charges && body.charges.length > 0) {
       statusPagamento = body.charges[0].status;

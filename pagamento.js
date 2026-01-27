@@ -56,28 +56,8 @@ function depositar(metodo) {
 }
 
 function processarMercadoPago(valor) {
-  const numeroTransacao = gerarTransacao();
-  const config = JSON.parse(localStorage.getItem("config_pagamentos")) || {};
-  
-  let mensagem = `🔗 Redirecionando para Mercado Pago...\n\n` +
-    `Valor: R$ ${valor.toFixed(2)}\n` +
-    `ID: ${numeroTransacao}\n`;
-
-  if (config.mercadopago?.email) {
-    mensagem += `\nDepositando para: ${config.mercadopago.email}`;
-  }
-
-  if (config.mercadopago?.pix) {
-    mensagem += `\nChave PIX: ${config.mercadopago.pix}`;
-  }
-
-  mensagem += `\n\nPara testar: clique em "OK" e confirmaremos o depósito`;
-
-  alert(mensagem);
-
-  // Apenas registra como pendente
-  confirmarDeposito(valor, "Mercado Pago");
-  document.getElementById("valor-mp").value = "";
+  // Agora usa o sistema automático (que chama a API configurada para MP)
+  processarPagamentoAutomatico(valor, "Mercado Pago");
 }
 
 function processarPagBank(valor) {

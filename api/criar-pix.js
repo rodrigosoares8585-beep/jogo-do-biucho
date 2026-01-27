@@ -46,16 +46,16 @@ module.exports = async function handler(req, res) {
       throw new Error("Dados do usuário não recebidos no corpo da requisição.");
     }
 
-    // 1. Buscar Token do PagBank no Firestore (Configurado no Painel Admin)
+    // 1. Buscar Token do Mercado Pago no Firestore
     const configDoc = await db.collection("configuracoes").doc("pagamentos").get();
     const config = configDoc.data();
 
-    if (!config || !config.pagbank || !config.pagbank.token) {
-      console.error("❌ ERRO: Token PagBank não configurado no banco de dados.");
-      return res.status(500).json({ error: "Token do PagBank não configurado no Painel Admin." });
+    if (!config || !config.mercadopago || !config.mercadopago.token) {
+      console.error("❌ ERRO: Token Mercado Pago não configurado.");
+      return res.status(500).json({ error: "Token do Mercado Pago não configurado no Painel Admin." });
     }
 
-    let token = config.pagbank.token.trim(); // Remove espaços acidentais
+    let token = config.mercadopago.token.trim();
 
     // CORREÇÃO: Remove "Bearer" se o usuário colou junto com o token
     if (token.toLowerCase().startsWith("bearer ")) {
@@ -69,57 +69,46 @@ module.exports = async function handler(req, res) {
     
     console.log(`🚀 Criando Pix... Webhook URL configurada: ${webhookUrl}`);
     
-    // 2. Montar o pedido para o PagBank
-    const bodyPagBank = {
-      reference_id: transacaoId,
-      customer: {
-        name: usuario.nome || "Cliente",
-        email: usuario.email || "cliente@email.com",
-        tax_id: "12345678909", // CPF genérico exigido pelo PagBank
-        phones: [{ country: "55", area: "11", number: "999999999", type: "MOBILE" }]
+    // 2. Montar o pedido para o Mercado Pago
+    const bodyMP = {
+      transaction_amount: parseFloat(valor),
+      description: "Creditos Jogo",
+      payment_method_id: "pix",
+      payer: {
+        email: usuario.email || "email@generico.com",
+        first_name: usuario.nome ? usuario.nome.split(' ')[0] : "Cliente",
+        last_name: "Usuario"
       },
-      items: [{
-        name: "Creditos Jogo",
-        quantity: 1,
-        unit_amount: Math.round(valor * 100) // Valor em centavos
-      }],
-      qr_codes: [{
-        amount: { value: Math.round(valor * 100) },
-        expiration_date: new Date(Date.now() + 3600 * 1000).toISOString(), // 1 hora de validade
-      }],
-      notification_urls: [
-        webhookUrl // Onde o PagBank vai avisar
-      ]
+      external_reference: transacaoId,
+      notification_url: webhookUrl
     };
 
-    // 3. Enviar para o PagBank
-    const response = await fetch("https://api.pagseguro.com/orders", {
+    // 3. Enviar para o Mercado Pago
+    const response = await fetch("https://api.mercadopago.com/v1/payments", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`,
-        "x-api-version": "4.0", // Garante uso da versão estável
-        "accept": "application/json"
+        "X-Idempotency-Key": transacaoId
       },
-      body: JSON.stringify(bodyPagBank)
+      body: JSON.stringify(bodyMP)
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("Erro PagBank:", JSON.stringify(data));
-      // Retorna a mensagem de erro específica do PagBank se houver
-      const msgErro = data.error_messages ? data.error_messages[0].description : "Erro ao criar Pix no PagBank";
+      console.error("Erro Mercado Pago:", JSON.stringify(data));
+      const msgErro = data.message || "Erro ao criar Pix no Mercado Pago";
       return res.status(400).json({ error: msgErro, details: data });
     }
 
     // 4. Extrair dados do QR Code
-    const qrCodeInfo = data.qr_codes[0];
-    const linkImagem = qrCodeInfo.links.find(l => l.rel === "QRCODE.PNG").href;
+    const qrCodeBase64 = data.point_of_interaction.transaction_data.qr_code_base64;
+    const qrCodeText = data.point_of_interaction.transaction_data.qr_code;
     
     return res.status(200).json({
-      qr_code_image: linkImagem,
-      qr_code_text: qrCodeInfo.text
+      qr_code_image: `data:image/png;base64,${qrCodeBase64}`,
+      qr_code_text: qrCodeText
     });
 
   } catch (error) {
