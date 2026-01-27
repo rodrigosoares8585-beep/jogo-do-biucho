@@ -132,31 +132,33 @@ window.tratarErroImagem = (img, nome, i) => {
 };
 
 // Renderiza os bichos
-bichos.forEach((b, i) => {
-  const div = document.createElement("div");
-  div.className = "bicho";
-  div.dataset.index = i;
-  div.style.animationDelay = `${i * 0.05}s`;
+if (container) {
+  bichos.forEach((b, i) => {
+    const div = document.createElement("div");
+    div.className = "bicho";
+    div.dataset.index = i;
+    div.style.animationDelay = `${i * 0.05}s`;
 
-  div.innerHTML = `
-    <img src="imagens/${i+1}.png?v=${Date.now()}" onerror="tratarErroImagem(this, '${b.nome}', ${i})" alt="${b.nome}">
-    <strong>${b.nome}</strong>
-    <span class="nums">${b.nums.map(n => String(n).padStart(2,"0")).join(" ")}</span>
-    <div class="cotacao">
-      <span class="label">Cotação:</span>
-      <span class="valor">${cotações.grupo.seco.toFixed(2)}x</span>
-    </div>
-    <div class="aposta-container">
-      <input type="number" class="valor-aposta" placeholder="R$ 0,00" step="0.01" min="0">
-      <div class="opcao-cercado">
-        <label style="cursor:pointer; display:flex; align-items:center; gap:5px;"><input type="checkbox" class="check-cercado"> 1º ao 5º (Cercado)</label>
+    div.innerHTML = `
+      <img src="imagens/${i+1}.png?v=${Date.now()}" onerror="tratarErroImagem(this, '${b.nome}', ${i})" alt="${b.nome}">
+      <strong>${b.nome}</strong>
+      <span class="nums">${b.nums.map(n => String(n).padStart(2,"0")).join(" ")}</span>
+      <div class="cotacao">
+        <span class="label">Cotação:</span>
+        <span class="valor">${cotações.grupo.seco.toFixed(2)}x</span>
       </div>
-      <button class="btn-apostar" onclick="fazerAposta(${i})">Apostar</button>
-    </div>
-  `;
+      <div class="aposta-container">
+        <input type="number" class="valor-aposta" placeholder="R$ 0,00" step="0.01" min="0">
+        <div class="opcao-cercado">
+          <label style="cursor:pointer; display:flex; align-items:center; gap:5px;"><input type="checkbox" class="check-cercado"> 1º ao 5º (Cercado)</label>
+        </div>
+        <button class="btn-apostar" onclick="fazerAposta(${i})">Apostar</button>
+      </div>
+    `;
 
-  container.appendChild(div);
-});
+    container.appendChild(div);
+  });
+}
 
 // ============================
 // FUNÇÕES DE APOSTA
@@ -485,6 +487,7 @@ function abrirBoletim() {
 
 function atualizarResultado(premios) {
   const container = document.getElementById("lista-premios");
+  if (!container) return; // Proteção se não estiver na home
   container.innerHTML = "";
 
   premios.forEach((num, index) => {
@@ -559,7 +562,7 @@ async function realizarSorteio() {
   
   // Atualiza Badge de Status
   const badge = document.getElementById("badge-status");
-  badge.style.display = "inline-block";
+  if (badge) badge.style.display = "inline-block";
   
   // Identifica o nome do site de onde veio o resultado
   let nomeFonte = resultado.bancaDetectada || "LOTECE";
@@ -571,11 +574,13 @@ async function realizarSorteio() {
   }
 
   const horarioTexto = resultado.horario ? ` ${resultado.horario}` : "";
-  badge.innerText = `● ${nomeFonte}${horarioTexto.toUpperCase()}`;
-  badge.title = `Fonte: ${resultado.fonte}`; // Mostra o link completo ao passar o mouse
-  badge.style.backgroundColor = "rgba(0, 255, 136, 0.2)";
-  badge.style.color = "#00ff88";
-  badge.style.border = "1px solid #00ff88";
+  if (badge) {
+    badge.innerText = `● ${nomeFonte}${horarioTexto.toUpperCase()}`;
+    badge.title = `Fonte: ${resultado.fonte}`; // Mostra o link completo ao passar o mouse
+    badge.style.backgroundColor = "rgba(0, 255, 136, 0.2)";
+    badge.style.color = "#00ff88";
+    badge.style.border = "1px solid #00ff88";
+  }
 
   // VERIFICAÇÃO DE MUDANÇA (Só atualiza se for um novo sorteio)
   const novoResultadoStr = JSON.stringify(resultado.valores);
@@ -1218,14 +1223,15 @@ function iniciarMonitoramento() {
 }
 
 // Iniciar o sistema
-iniciarMonitoramento();
+if (document.getElementById("bichos")) {
+  iniciarMonitoramento();
+}
 
 // Carregar carrinho ao abrir
 window.addEventListener("load", () => {
   atualizarBoletim();
   renderizarHistorico();
   adicionarMascote();
-  renderizarAreaBilhetes();
   atualizarListaBilhetes();
 
   // Recupera o último resultado para permitir conferência imediata
@@ -1339,30 +1345,6 @@ function renderizarHistorico() {
 // ============================
 // MEUS BILHETES (NOVO)
 // ============================
-
-function renderizarAreaBilhetes() {
-  // Verifica se já existe para não duplicar
-  if (document.getElementById("area-bilhetes")) return;
-
-  const div = document.createElement("div");
-  div.id = "area-bilhetes";
-  div.className = "bilhetes-section";
-  div.innerHTML = `
-    <div class="bilhetes-header">
-      <h3>🎟️ Meus Bilhetes</h3>
-      <button onclick="limparBilhetesAntigos()" class="btn-limpar-bilhetes">Limpar Histórico</button>
-    </div>
-    <div id="lista-bilhetes" class="lista-bilhetes">
-      <p class="vazio">Carregando bilhetes...</p>
-    </div>
-  `;
-  
-  // Insere logo após o container de bichos
-  const bichosContainer = document.getElementById("bichos");
-  if (bichosContainer) {
-    bichosContainer.parentNode.insertBefore(div, bichosContainer.nextSibling);
-  }
-}
 
 window.atualizarListaBilhetes = async function() {
   const container = document.getElementById("lista-bilhetes");
