@@ -56,8 +56,38 @@ function depositar(metodo) {
 }
 
 function processarMercadoPago(valor) {
-  // Agora usa o sistema automático (que chama a API configurada para MP)
-  processarPagamentoAutomatico(valor, "Mercado Pago");
+  const tipoEl = document.querySelector('input[name="mp-tipo"]:checked');
+  const tipo = tipoEl ? tipoEl.value : 'pix';
+
+  if (tipo === 'pix') {
+    // Agora usa o sistema automático (que chama a API configurada para MP)
+    processarPagamentoAutomatico(valor, "Mercado Pago");
+  } else {
+    // Processamento de Cartão (Manual/Pendente)
+    const numeroCartao = document.getElementById("mp-numero-cartao").value;
+    const nomeCartao = document.getElementById("mp-nome-cartao").value;
+    const cvv = document.getElementById("mp-cvv").value;
+    const validade = document.getElementById("mp-validade").value;
+
+    if (!numeroCartao || !nomeCartao || !cvv || !validade) {
+      alert("Preencha todos os dados do cartão!");
+      return;
+    }
+
+    if (!validarCartao(numeroCartao)) {
+      alert("Número do cartão inválido!");
+      return;
+    }
+
+    confirmarDeposito(valor, "Mercado Pago (Cartão)");
+    
+    // Limpar campos
+    document.getElementById("mp-numero-cartao").value = "";
+    document.getElementById("mp-nome-cartao").value = "";
+    document.getElementById("mp-cvv").value = "";
+    document.getElementById("mp-validade").value = "";
+    document.getElementById("valor-mp").value = "";
+  }
 }
 
 function processarPagBank(valor) {
@@ -133,6 +163,12 @@ function confirmarDeposito(valor, metodo) {
   
   alert(`✅ Solicitação de depósito enviada!\n\nValor: R$ ${valor.toFixed(2)}\n\nO saldo será liberado após a confirmação do administrador.`);
 }
+
+window.toggleMPForm = function() {
+  const tipo = document.querySelector('input[name="mp-tipo"]:checked').value;
+  const form = document.getElementById("mp-cartao-form");
+  if (form) form.style.display = tipo === "cartao" ? "block" : "none";
+};
 
 // ==============================
 // PAGAMENTO AUTOMÁTICO (NOVO)
