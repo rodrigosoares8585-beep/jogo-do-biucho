@@ -416,7 +416,7 @@ function removerDoCarrinho(index) {
   atualizarBoletim();
 }
 
-function confirmarBoletim() {
+async function confirmarBoletim() {
   const usuario = obterUsuario();
   if (!usuario) return alert("Faça login!");
 
@@ -429,21 +429,42 @@ function confirmarBoletim() {
     return alert(`Saldo insuficiente para confirmar essas apostas!\nTotal: ${formatarBRL(totalApostado)}\nSeu Saldo: ${formatarBRL(usuario.saldo)}`);
   }
 
-  // 1. Deduzir saldo total
+  // 1. Deduzir saldo total e atualizar na Nuvem
   const novoSaldo = usuario.saldo - totalApostado;
-  atualizarSaldo(novoSaldo);
+  
+  try {
+    // Atualiza saldo no Firebase
+    await window.updateDoc(window.doc(window.db, "usuarios", usuario.id), { saldo: novoSaldo });
+    atualizarSaldo(novoSaldo); // Atualiza visualmente
 
-  // 2. Mover do carrinho para apostas pendentes (Valendo!)
-  let apostasPendentes = JSON.parse(localStorage.getItem("apostasPendentes")) || [];
-  apostasPendentes = apostasPendentes.concat(carrinho);
-  localStorage.setItem("apostasPendentes", JSON.stringify(apostasPendentes));
+    // 2. Salvar Apostas na Nuvem (Firestore)
+    const batchPromises = carrinho.map(item => {
+      const aposta = {
+        ...item,
+        id: 'BET-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
+        userId: usuario.id,
+        usuarioNome: usuario.nome,
+        dataAposta: new Date().toLocaleString(),
+        timestamp: Date.now(),
+        status: 'Pendente'
+      };
+      return window.setDoc(window.doc(window.db, "apostas", aposta.id), aposta);
+    });
 
-  // 3. Limpar carrinho
-  localStorage.removeItem("carrinho");
-  atualizarBoletim();
-  toggleBoletim(); // Fecha o boletim
+    await Promise.all(batchPromises);
 
-  alert(`✅ Apostas confirmadas com sucesso!\nBoa sorte!`);
+    // 3. Limpar carrinho
+    localStorage.removeItem("carrinho");
+    atualizarBoletim();
+    toggleBoletim(); // Fecha o boletim
+
+    atualizarListaBilhetes();
+    alert(`✅ Apostas realizadas e salvas na nuvem!`);
+
+  } catch (e) {
+    console.error("Erro ao salvar aposta:", e);
+    alert("Erro ao processar aposta. Verifique sua conexão.");
+  }
 }
 
 function toggleBoletim() {
@@ -577,7 +598,7 @@ async function realizarSorteio() {
   ultimoResultado = resultado.valores; // Atualiza a variável global
   
   // Verifica ganhadores com o NOVO resultado
-  verificarApostas(resultado.valores);
+  verificarApostas(resultado); // Agora é async, mas não precisamos esperar o await aqui para não travar a UI
 
   // Atualiza histórico visual
   atualizarHistorico(resultado);
@@ -591,19 +612,55 @@ async function realizarSorteio() {
   iniciarTimer();
 }
 
-function verificarApostas(todosPremios) {
-  const apostas = JSON.parse(localStorage.getItem("apostasPendentes")) || [];
-  if (apostas.length === 0) return; // Se não tem apostas, não faz nada
-
+async function verificarApostas(resultadoObj) {
   const usuario = obterUsuario();
   if (!usuario) return;
 
+  // Busca apostas pendentes DO FIREBASE
+  let pendentes = [];
+  try {
+    const q = window.query(
+      window.collection(window.db, "apostas"),
+      window.where("userId", "==", usuario.id),
+      window.where("status", "==", "Pendente")
+    );
+    const snapshot = await window.getDocs(q);
+    snapshot.forEach(doc => pendentes.push(doc.data()));
+  } catch (e) {
+    console.error("Erro ao buscar apostas:", e);
+    return;
+  }
+
+  if (pendentes.length === 0) return;
+
+  const todosPremios = resultadoObj.valores;
   let totalGanho = 0;
   let mensagensVitoria = [];
+  let updates = [];
 
   // Processa cada aposta
-  apostas.forEach(aposta => {
+  pendentes.forEach(aposta => {
+    // Tenta verificar se a banca e horário batem (se a informação estiver disponível)
+    // Se o resultado veio com bancaDetectada, usamos para validar "Perdeu".
+    // Se não bater a banca, ignoramos (continua Pendente).
+    // Se bater a banca e não ganhar, marca como Perdeu.
+    
+    const bancaSorteio = resultadoObj.bancaDetectada || "";
+    const horarioSorteio = resultadoObj.horario || "";
+    
+    // Normalização simples para comparação
+    const bancaApostaNorm = aposta.banca.toLowerCase().trim();
+    const bancaSorteioNorm = bancaSorteio.toLowerCase().trim();
+    
+    // Se as bancas forem muito diferentes, pula (não valida nem ganho nem perda)
+    // Nota: Isso é uma proteção básica. Se o nome for idêntico ou contido, prossegue.
+    const mesmaBanca = bancaSorteioNorm.includes(bancaApostaNorm) || bancaApostaNorm.includes(bancaSorteioNorm);
+    
+    // Se não for a mesma banca, não faz nada (continua pendente esperando a banca certa)
+    if (!mesmaBanca && bancaSorteio !== "") return;
+
     let ganho = 0;
+    let ganhouAposta = false;
     
     // ====================================================
     // 1. LÓGICA BANCA COMPLETA (Duque/Terno de Dezena e Grupo)
@@ -654,6 +711,7 @@ function verificarApostas(todosPremios) {
       
       if (acertou) {
         ganho = aposta.valor * multiplicador;
+        ganhouAposta = true;
         mensagensVitoria.push(`${aposta.tipo.toUpperCase().replace('_', ' ')}: ${aposta.numero} - ${formatarBRL(ganho)}`);
       }
     } 
@@ -712,46 +770,68 @@ function verificarApostas(todosPremios) {
           const valorPremio = aposta.valor * multiplicador;
           
           ganho += valorPremio;
+          ganhouAposta = true;
           const posicaoTexto = (posicao === 0) ? "Na Cabeça" : `${posicao + 1}º Prêmio`;
           mensagensVitoria.push(`${descricaoPremio} (${posicaoTexto}): ${formatarBRL(valorPremio)}`);
         }
       });
     }
 
+    if (ganhouAposta) {
+      aposta.status = 'Ganhou';
+      totalGanho += ganho;
+      updates.push(window.updateDoc(window.doc(window.db, "apostas", aposta.id), { status: 'Ganhou' }));
+    } else if (mesmaBanca) {
+      // Se era a mesma banca e não ganhou, então perdeu
+      aposta.status = 'Perdeu';
+      updates.push(window.updateDoc(window.doc(window.db, "apostas", aposta.id), { status: 'Perdeu' }));
+    }
+    // Se não era a mesma banca, continua 'Pendente'
+
     totalGanho += ganho;
   });
 
-  if (totalGanho > 0) {
-    const novoSaldo = usuario.saldo + totalGanho;
-    atualizarSaldo(novoSaldo);
-
-    // REGISTRAR PRÊMIO NO FIREBASE (PARA O ADMIN VER)
-    if (window.db && window.setDoc && window.doc) {
-      const idTransacao = "WIN" + Date.now();
-      const transacaoPremio = {
-        id: idTransacao,
-        userId: usuario.id,
-        usuarioNome: usuario.nome,
-        usuarioEmail: usuario.email,
-        tipo: "Prêmio",
-        valor: totalGanho,
-        metodo: "Saldo",
-        status: "Pago",
-        data: new Date().toLocaleString("pt-BR"),
-        timestamp: Date.now(),
-        detalhes: mensagensVitoria.join(", ")
-      };
-      window.setDoc(window.doc(window.db, "transacoes", idTransacao), transacaoPremio)
-        .catch(e => console.error("Erro ao salvar prêmio:", e));
-    }
-
-    setTimeout(() => {
-      alert(`🎉 Parabéns! Você ganhou!\n\nPrêmios:\n- ${mensagensVitoria.join("\n- ")}\n\nTotal: ${formatarBRL(totalGanho)}`);
-    }, 500);
+  if (updates.length > 0) {
+    await Promise.all(updates);
+    atualizarListaBilhetes();
   }
 
-  // Limpar as apostas dessa rodada
-  localStorage.removeItem("apostasPendentes");
+  if (totalGanho > 0) {
+    try {
+      // Atualiza saldo no Firebase (pega o mais recente para evitar conflito)
+      const userRef = window.doc(window.db, "usuarios", usuario.id);
+      const userSnap = await window.getDoc(userRef);
+      const saldoAtual = userSnap.exists() ? userSnap.data().saldo : usuario.saldo;
+      const novoSaldo = saldoAtual + totalGanho;
+      
+      await window.updateDoc(userRef, { saldo: novoSaldo });
+      atualizarSaldo(novoSaldo);
+
+      // REGISTRAR PRÊMIO NO FIREBASE (PARA O ADMIN VER)
+      if (window.db && window.setDoc && window.doc) {
+        const idTransacao = "WIN" + Date.now();
+        const transacaoPremio = {
+          id: idTransacao,
+          userId: usuario.id,
+          usuarioNome: usuario.nome,
+          usuarioEmail: usuario.email,
+          tipo: "Prêmio",
+          valor: totalGanho,
+          metodo: "Saldo",
+          status: "Pago",
+          data: new Date().toLocaleString("pt-BR"),
+          timestamp: Date.now(),
+          detalhes: mensagensVitoria.join(", ")
+        };
+        window.setDoc(window.doc(window.db, "transacoes", idTransacao), transacaoPremio)
+          .catch(e => console.error("Erro ao salvar prêmio:", e));
+      }
+
+      setTimeout(() => {
+        alert(`🎉 Parabéns! Você ganhou!\n\nPrêmios:\n- ${mensagensVitoria.join("\n- ")}\n\nTotal: ${formatarBRL(totalGanho)}`);
+      }, 500);
+    } catch(e) { console.error("Erro ao creditar prêmio:", e); }
+  }
 }
 
 function renderizarGradeResultados() {
@@ -1145,6 +1225,8 @@ window.addEventListener("load", () => {
   atualizarBoletim();
   renderizarHistorico();
   adicionarMascote();
+  renderizarAreaBilhetes();
+  atualizarListaBilhetes();
 
   // Recupera o último resultado para permitir conferência imediata
   const historico = JSON.parse(localStorage.getItem("historicoResultados")) || [];
@@ -1255,6 +1337,105 @@ function renderizarHistorico() {
 }
 
 // ============================
+// MEUS BILHETES (NOVO)
+// ============================
+
+function renderizarAreaBilhetes() {
+  // Verifica se já existe para não duplicar
+  if (document.getElementById("area-bilhetes")) return;
+
+  const div = document.createElement("div");
+  div.id = "area-bilhetes";
+  div.className = "bilhetes-section";
+  div.innerHTML = `
+    <div class="bilhetes-header">
+      <h3>🎟️ Meus Bilhetes</h3>
+      <button onclick="limparBilhetesAntigos()" class="btn-limpar-bilhetes">Limpar Histórico</button>
+    </div>
+    <div id="lista-bilhetes" class="lista-bilhetes">
+      <p class="vazio">Carregando bilhetes...</p>
+    </div>
+  `;
+  
+  // Insere logo após o container de bichos
+  const bichosContainer = document.getElementById("bichos");
+  if (bichosContainer) {
+    bichosContainer.parentNode.insertBefore(div, bichosContainer.nextSibling);
+  }
+}
+
+window.atualizarListaBilhetes = async function() {
+  const container = document.getElementById("lista-bilhetes");
+  if (!container) return;
+
+  const usuario = obterUsuario();
+  if (!usuario) {
+    container.innerHTML = '<p class="vazio">Faça login para ver seus bilhetes.</p>';
+    return;
+  }
+
+  try {
+    const q = window.query(
+      window.collection(window.db, "apostas"),
+      window.where("userId", "==", usuario.id)
+    );
+    const snapshot = await window.getDocs(q);
+    let historico = [];
+    snapshot.forEach(doc => historico.push(doc.data()));
+    
+    // Ordenar por data (timestamp) decrescente
+    historico.sort((a, b) => b.timestamp - a.timestamp);
+
+    if (historico.length === 0) {
+      container.innerHTML = '<p class="vazio">Nenhum bilhete registrado.</p>';
+      return;
+    }
+
+    container.innerHTML = historico.map(aposta => {
+      const statusClass = aposta.status.toLowerCase();
+      const descricao = aposta.tipo === 'grupo' ? `Grupo ${aposta.nomeBicho}` : `${aposta.tipo.toUpperCase()}: ${aposta.numero}`;
+      
+      return `
+        <div class="bilhete-card ${statusClass}">
+          <div class="bilhete-info">
+            <div class="bilhete-topo">
+              <strong>${descricao}</strong>
+              <span class="badge-status ${statusClass}">${aposta.status}</span>
+            </div>
+            <div class="bilhete-detalhes">
+              <span>${aposta.banca} • ${aposta.horario}</span>
+              <span>${aposta.dataAposta}</span>
+            </div>
+            <div class="bilhete-valor">
+              Aposta: ${formatarBRL(aposta.valor)}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    console.error("Erro ao carregar bilhetes:", e);
+  }
+};
+
+window.limparBilhetesAntigos = async function() {
+  if(!confirm("Deseja apagar TODO o histórico de bilhetes da nuvem?")) return;
+  const usuario = obterUsuario();
+  if (!usuario) return;
+
+  try {
+    const q = window.query(window.collection(window.db, "apostas"), window.where("userId", "==", usuario.id));
+    const snapshot = await window.getDocs(q);
+    const batchPromises = [];
+    snapshot.forEach(doc => batchPromises.push(window.deleteDoc(doc.ref)));
+    await Promise.all(batchPromises);
+    atualizarListaBilhetes();
+  } catch(e) {
+    alert("Erro ao limpar: " + e.message);
+  }
+};
+
+// ============================
 // MASCOTE
 // ============================
 
@@ -1295,5 +1476,25 @@ window.onclick = (event) => {
   const modal = document.getElementById("modal-cotacoes");
   if (event.target === modal) {
     modal.style.display = "none";
+  }
+};
+
+// ============================
+// FUNÇÕES GLOBAIS AUXILIARES
+// ============================
+
+window.obterUsuario = function() {
+  return JSON.parse(localStorage.getItem("usuarioLogado"));
+};
+
+window.atualizarSaldo = function(valor) {
+  const usuario = obterUsuario();
+  if (usuario) {
+    usuario.saldo = valor;
+    localStorage.setItem("usuarioLogado", JSON.stringify(usuario));
+    const elSaldo = document.getElementById("user-saldo");
+    if (elSaldo) elSaldo.innerText = valor.toFixed(2);
+    const elSaldoDisp = document.getElementById("saldo-disponivel");
+    if (elSaldoDisp) elSaldoDisp.innerText = valor.toFixed(2);
   }
 };

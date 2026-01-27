@@ -2220,3 +2220,81 @@ footer {
     border-radius: 15px 15px 0 0;
   }
 }
+
+/* ========================= */
+/* MEUS BILHETES */
+/* ========================= */
+
+.bilhetes-section {
+  margin-top: 40px;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 20px;
+  padding: 25px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.bilhetes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.bilhetes-header h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 18px;
+}
+
+.btn-limpar-bilhetes {
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: #94a3b8;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.btn-limpar-bilhetes:hover {
+  background: rgba(255,100,100,0.2);
+  color: #ff6b6b;
+}
+
+.lista-bilhetes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+.bilhete-card {
+  background: rgba(0,0,0,0.3);
+  border-radius: 10px;
+  padding: 15px;
+  border-left: 4px solid #94a3b8; /* Pendente (Cinza) */
+  transition: transform 0.2s;
+}
+
+.bilhete-card.ganhou { border-left-color: #00ffd5; background: rgba(0, 255, 213, 0.05); }
+.bilhete-card.perdeu { border-left-color: #ff6b6b; opacity: 0.7; }
+.bilhete-card.pendente { border-left-color: #ffd166; }
+
+.bilhete-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.bilhete-topo strong { color: #fff; font-size: 14px; }
+
+.badge-status {
+  font-size: 10px; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; font-weight: bold;
+}
+.badge-status.ganhou { color: #00ffd5; background: rgba(0,255,213,0.1); }
+.badge-status.perdeu { color: #ff6b6b; background: rgba(255,107,107,0.1); }
+.badge-status.pendente { color: #ffd166; background: rgba(255,209,102,0.1); }
+
+.bilhete-detalhes { font-size: 11px; color: #94a3b8; display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+
+.bilhete-valor { font-size: 13px; font-weight: bold; color: #e2e8f0; }
