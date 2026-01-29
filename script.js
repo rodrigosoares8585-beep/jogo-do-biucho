@@ -903,6 +903,7 @@ function renderizarGradeResultados() {
 
     const cardHTML = `
             <h4>${banca} <span style="float:right; opacity:0.5; font-size:10px;">${dados.horario || ''}</span></h4>
+            <h4>${banca} <span style="float:right; opacity:0.5; font-size:10px;">${dados.data ? dados.data + ' - ' : ''}${dados.horario || ''}</span></h4>
             <div class="numeros-lista">
               ${dados.valores.map((n, i) => `
                 <div class="linha-result">
@@ -1031,15 +1032,22 @@ async function processarBancaIndividual(url, proxies) {
             if (!nomeBanca) nomeBanca = "Banca Desconhecida";
 
             let horario = "";
+            let data = "";
             const infoDiv = doc.querySelector(".resultado-info");
             if (infoDiv) {
                 const horaSpan = infoDiv.querySelector(".hora");
                 if (horaSpan) horario = horaSpan.textContent.trim();
+                const dataSpan = infoDiv.querySelector(".data");
+                if (dataSpan) data = dataSpan.textContent.trim();
             }
             if (!horario) {
                 // Tenta achar horário no texto (HH:MM)
                 const match = /(\d{2}:\d{2})/.exec(html);
                 if (match) horario = match[0];
+            }
+            if (!data) {
+                const matchData = /(\d{2}\/\d{2}\/\d{4})/.exec(html);
+                if (matchData) data = matchData[0];
             }
 
             // Extração de Números (Milhares)
@@ -1058,6 +1066,8 @@ async function processarBancaIndividual(url, proxies) {
                     resultadosPorBanca[nomeBanca] = {
                         valores: unicos.slice(0, 10),
                         horario: horario || "Hoje"
+                        horario: horario || "Hoje",
+                        data: data || ""
                     };
                     
                     // Atualiza a grade visualmente à medida que os dados chegam
@@ -1067,6 +1077,7 @@ async function processarBancaIndividual(url, proxies) {
                         valores: unicos.slice(0, 10),
                         bancaDetectada: nomeBanca,
                         horario: horario,
+                        data: data,
                         fonte: url
                     };
                 }
