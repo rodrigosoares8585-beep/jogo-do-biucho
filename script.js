@@ -1026,55 +1026,7 @@ function analisarHTML(html, url) {
     // Limpeza de scripts/styles para evitar falsos positivos
     doc.querySelectorAll('script, style, noscript').forEach(el => el.remove());
 
-    // ============================================================
-    // ESTRATÉGIA 1: Baseada no exemplo Python (Estrutura de Card)
-    // ============================================================
-    // Procura por containers com classe 'banca-card' ou similar, conforme seu exemplo
-    const cards = doc.querySelectorAll('.banca-card, .card, .result-card, div[class*="card"], div[class*="result"]');
-    
-    if (cards.length > 0) {
-        for (const card of cards) {
-            try {
-                // Tenta extrair nome (h3) e horário (span.hora) conforme exemplo Python
-                const nomeEl = card.querySelector('h3, h2, .nome');
-                const horaEl = card.querySelector('.hora, .time, span.hora');
-                
-                if (nomeEl) {
-                    let bancaNome = nomeEl.textContent.trim();
-                    let horario = horaEl ? horaEl.textContent.trim() : "";
-                    
-                    // Se não achou horário no span, tenta no texto do card
-                    if (!horario) {
-                        const matchH = /(\d{2}:\d{2})|(\d{2}h\d{2})/.exec(card.textContent);
-                        if (matchH) horario = matchH[0];
-                    }
-
-                    // Busca números no card (milhares)
-                    const textoCard = card.innerText || card.textContent || "";
-                    const matches = textoCard.match(/(?:\b\d{4}\b|\b\d{1}\.\d{3}\b)/g);
-                    
-                    if (matches) {
-                        const numeros = matches
-                            .map(n => parseInt(n.replace(/\./g, '')))
-                            .filter(n => n < 2023 || n > 2026);
-                        const unicos = [...new Set(numeros)];
-
-                        if (unicos.length >= 5) {
-                            resultadosPorBanca[bancaNome] = { valores: unicos.slice(0, 10), horario: horario || "Hoje" };
-                            
-                            // Define principal se for prioridade
-                            const ehPrioridade = /PT|Federal|Nacional|Rio/i.test(bancaNome);
-                            if (!resultadoPrincipal || (ehPrioridade && !/PT|Federal|Nacional|Rio/i.test(resultadoPrincipal.bancaDetectada))) {
-                                resultadoPrincipal = { valores: unicos.slice(0, 10), bancaDetectada: bancaNome, horario: horario };
-                            }
-                        }
-                    }
-                }
-            } catch (e) {}
-        }
-    }
-
-    // ESTRATÉGIA 2: Genérica e Robusta (Fallback)
+    // ESTRATÉGIA: Identificar blocos de resultado (Cards)
     // Procura elementos que pareçam títulos de banca (contêm horário ou nome de banca)
     const candidatos = doc.querySelectorAll('h1, h2, h3, h4, h5, div, span, p, strong, b');
 
@@ -1109,9 +1061,6 @@ function analisarHTML(html, url) {
                 }
 
                 if (bancaNome.length < 2) bancaNome = "Banca " + horario;
-                
-                // Evita duplicar se a Estratégia 1 já pegou
-                if (resultadosPorBanca[bancaNome]) continue;
 
                 // Busca números no container pai e arredores
                 let container = el.parentElement;
