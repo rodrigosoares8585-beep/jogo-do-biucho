@@ -1102,7 +1102,8 @@ async function processarFonte(url, proxies) {
         }
 
         // Procura por títulos que contenham nomes das bancas conhecidas (FALLBACK)
-        const titulos = doc.querySelectorAll('h1, h2, h3, h4, h5, h6, strong, b, td, th, .titulo, .banca, span');
+        // Adicionado div e p para maior alcance na detecção de nomes de bancas
+        const titulos = doc.querySelectorAll('h1, h2, h3, h4, h5, h6, strong, b, td, th, .titulo, .banca, span, div, p');
 
         for (let titulo of titulos) {
           const textoTitulo = (titulo.textContent || "").trim();
@@ -1121,11 +1122,11 @@ async function processarFonte(url, proxies) {
             let tentativas = 0;
             
             // Tenta extrair números dos elementos seguintes (tabela ou lista)
-            while (containerBusca && tentativas < 20) {
+            while (containerBusca && tentativas < 30) {
               const textoContainer =containerBusca.innerText || containerBusca.textContent || "";
               
               // Pula containers muito pequenos ou vazios (provavelmente separadores)
-              if (textoContainer.length < 3) { containerBusca = containerBusca.nextElementSibling; tentativas++; continue; }
+              if (textoContainer.length < 2) { containerBusca = containerBusca.nextElementSibling; tentativas++; continue; }
 
               // Procura sequências de 4 dígitos
               const matches = textoContainer.match(/\b\d{4}\b/g);
@@ -1135,10 +1136,9 @@ async function processarFonte(url, proxies) {
                    if (numerosBanca.length < 5) numerosBanca.push(num);
                 }
                 
-                if (numerosBanca.length >= 5) {
+                if (numerosBanca.length >= 3) { // Aceita parciais (min 3)
                   resultadosPorBanca[bancaEncontrada] = { valores: numerosBanca, horario: "Hoje" };
-                  bancaDestaUrl = bancaEncontrada; // Atualiza com o nome exato achado no HTML se possível
-                  break; // Achou, para de procurar
+                  // Removido o break para permitir encontrar múltiplas bancas na mesma página
                 }
               }
               containerBusca = containerBusca.nextElementSibling;
@@ -1215,6 +1215,33 @@ async function processarFonte(url, proxies) {
               }
             }
           }
+        }
+
+        // ESTRATÉGIA 3: Busca por elementos separados (Posição em um, Valor no próximo)
+        // Ex: <div>1º</div> <div>1234</div>
+        if (premiosEncontrados.filter(n => n !== undefined).length < 5) {
+           const elementos = doc.querySelectorAll('div, p, span, td, li, b, strong');
+           for (let i = 0; i < elementos.length - 1; i++) {
+              const txtAtual = (elementos[i].textContent || "").trim();
+              // Verifica se é indicador de posição (ex: "1º", "1", "1° Prêmio")
+              const matchPos = txtAtual.match(/^(\d{1,2})[ºo°ª]?\s*(?:Prêmio|Premio)?$/i);
+              
+              if (matchPos) {
+                 const pos = parseInt(matchPos[1]);
+                 if (pos >= 1 && pos <= 10) {
+                    // Olha o próximo elemento
+                    const txtProx = (elementos[i+1].textContent || "").trim().replace(/\D/g, '');
+                    if (txtProx.length === 4) {
+                       const num = parseInt(txtProx);
+                       if (num < anoAtual - 1 || num > anoAtual + 1) {
+                          if (premiosEncontrados[pos - 1] === undefined) {
+                             premiosEncontrados[pos - 1] = num;
+                          }
+                       }
+                    }
+                 }
+              }
+           }
         }
 
         // SE A ESTRATÉGIA 1 (HTML ESPECÍFICO) FUNCIONOU, RETORNA IMEDIATAMENTE
