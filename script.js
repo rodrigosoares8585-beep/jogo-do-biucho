@@ -1220,7 +1220,7 @@ async function processarFonte(url, proxies) {
         // ESTRATÉGIA 3: Busca por elementos separados (Posição em um, Valor no próximo)
         // Ex: <div>1º</div> <div>1234</div>
         if (premiosEncontrados.filter(n => n !== undefined).length < 5) {
-           const elementos = doc.querySelectorAll('div, p, span, td, li, b, strong');
+           const elementos = doc.querySelectorAll('div, p, span, td, li, b, strong, h1, h2, h3, h4, h5, h6');
            for (let i = 0; i < elementos.length - 1; i++) {
               const txtAtual = (elementos[i].textContent || "").trim();
               // Verifica se é indicador de posição (ex: "1º", "1", "1° Prêmio")
@@ -1229,15 +1229,29 @@ async function processarFonte(url, proxies) {
               if (matchPos) {
                  const pos = parseInt(matchPos[1]);
                  if (pos >= 1 && pos <= 10) {
-                    // Olha o próximo elemento
-                    const txtProx = (elementos[i+1].textContent || "").trim().replace(/\D/g, '');
-                    if (txtProx.length === 4) {
-                       const num = parseInt(txtProx);
-                       if (num < anoAtual - 1 || num > anoAtual + 1) {
-                          if (premiosEncontrados[pos - 1] === undefined) {
-                             premiosEncontrados[pos - 1] = num;
+                    // Olha os próximos elementos (até 3 à frente) para pular labels como "Milhar", "Prêmio"
+                    for (let k = 1; k <= 3; k++) {
+                       if (i + k >= elementos.length) break;
+                       const elProx = elementos[i+k];
+                       const txtProx = (elProx.textContent || "").trim();
+                       
+                       // Se for label, continua procurando
+                       if (/^(Milhar|Prêmio|Premio|Número|Numero|Pontos)$/i.test(txtProx)) continue;
+
+                       const limpo = txtProx.replace(/\D/g, '');
+                       if (limpo.length === 4) {
+                          const num = parseInt(limpo);
+                          if (num < anoAtual - 1 || num > anoAtual + 1) {
+                             if (premiosEncontrados[pos - 1] === undefined) {
+                                premiosEncontrados[pos - 1] = num;
+                             }
+                             // Avança o índice principal para evitar reprocessar esses elementos
+                             i += k; 
+                             break;
                           }
                        }
+                       // Se encontrou texto que não é label nem número, para de procurar para esta posição
+                       else if (txtProx.length > 0) break;
                     }
                  }
               }
