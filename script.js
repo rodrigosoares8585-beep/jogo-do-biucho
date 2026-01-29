@@ -842,34 +842,54 @@ async function verificarApostas(resultadoObj) {
 }
 
 function renderizarGradeResultados() {
-  let container = document.getElementById("grade-bancas");
+  let wrapper = document.getElementById("grade-bancas-wrapper");
   
-  // Cria o container se não existir
-  if (!container) {
-    container = document.createElement("div");
-    container.id = "grade-bancas";
-    container.className = "grade-bancas";
+  // Cria o wrapper se não existir
+  if (!wrapper) {
+    wrapper = document.createElement("div");
+    wrapper.id = "grade-bancas-wrapper";
     // Insere logo após o resultado principal
     const mainResult = document.getElementById("resultado");
-    if (mainResult) mainResult.parentNode.insertBefore(container, mainResult.nextSibling);
+    if (mainResult) mainResult.parentNode.insertBefore(wrapper, mainResult.nextSibling);
   }
 
-  container.innerHTML = Object.keys(resultadosPorBanca).map(banca => {
-    const dados = resultadosPorBanca[banca];
-    return `
-      <div class="card-banca-mini">
-        <h4>${banca}</h4>
-        <div class="numeros-lista">
-          ${dados.valores.map((n, i) => `
-            <div class="linha-result">
-              <span>${i + 1}º</span>
-              <strong>${String(n).padStart(4, '0')}</strong>
+  const bancas = Object.keys(resultadosPorBanca);
+  
+  if (bancas.length === 0) {
+    wrapper.innerHTML = "";
+    return;
+  }
+
+  const btnStyle = "background:rgba(0, 255, 213, 0.1); border:1px solid #00ffd5; color:#00ffd5; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:11px; transition:all 0.2s; display:flex; align-items:center; gap:5px;";
+
+  wrapper.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin: 30px 0 15px 0; padding: 0 5px;">
+      <h3 style="margin:0; color:#94a3b8; font-size:14px; text-transform:uppercase; letter-spacing:1px;">
+        📊 Resultados por Banca (${bancas.length})
+      </h3>
+      <button onclick="exportarResultadosCSV()" style="${btnStyle}" onmouseover="this.style.background='#00ffd5';this.style.color='#0f172a'" onmouseout="this.style.background='rgba(0, 255, 213, 0.1)';this.style.color='#00ffd5'">
+        📥 Baixar CSV
+      </button>
+    </div>
+    <div class="grade-bancas">
+      ${bancas.map(banca => {
+        const dados = resultadosPorBanca[banca];
+        return `
+          <div class="card-banca-mini">
+            <h4>${banca} <span style="float:right; opacity:0.5; font-size:10px;">${dados.horario || ''}</span></h4>
+            <div class="numeros-lista">
+              ${dados.valores.map((n, i) => `
+                <div class="linha-result">
+                  <span>${i + 1}º</span>
+                  <strong>${String(n).padStart(4, '0')}</strong>
+                </div>
+              `).join('')}
             </div>
-          `).join('')}
-        </div>
-      </div>
-    `;
-  }).join('');
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
 }
 
 // Função Principal: Busca o primeiro resultado rápido e dispara o resto em background
@@ -1634,4 +1654,41 @@ window.atualizarSaldo = function(valor) {
     const elSaldoDisp = document.getElementById("saldo-disponivel");
     if (elSaldoDisp) elSaldoDisp.innerText = valor.toFixed(2);
   }
+};
+
+// ============================
+// EXPORTAÇÃO DE DADOS
+// ============================
+
+window.exportarResultadosCSV = function() {
+  const bancas = Object.keys(resultadosPorBanca);
+  if (bancas.length === 0) return alert("Nenhum resultado carregado para exportar.");
+
+  // BOM para Excel reconhecer UTF-8
+  let csvContent = "\uFEFF";
+  csvContent += "Banca;Horário;1º Prêmio;2º Prêmio;3º Prêmio;4º Prêmio;5º Prêmio\n";
+
+  bancas.forEach(banca => {
+    const dados = resultadosPorBanca[banca];
+    const valores = dados.valores.map(v => String(v).padStart(4, '0'));
+    // Completa com vazios se faltar prêmio
+    while (valores.length < 5) valores.push("");
+
+    const linha = [
+      banca,
+      dados.horario || "-",
+      ...valores.slice(0, 5)
+    ].join(";");
+
+    csvContent += linha + "\n";
+  });
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", `resultados_bicho_${new Date().toLocaleDateString("pt-BR").replace(/\//g, "-")}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
