@@ -921,29 +921,9 @@ function renderizarGradeResultados() {
 
 // Função Principal: Busca o primeiro resultado rápido e dispara o resto em background
 async function buscarResultadoLoteriaSonho() {
+  // A fonte principal agora é a página que agrega todas as bancas.
   const fontes = [
-    // LINKS DIRETOS POR BANCA (Extração Precisa)
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-abaese-itabaiana-paratodos',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-aval-pernambuco',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-bandeirantes-sp',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-bicho-rs',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-caminho-da-sorte',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-deu-no-poste',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-extracao-online-alianca',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-federal-do-brasil',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-look-loterias',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-lotece-loteria-dos-sonhos',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-lotep',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-loteria-popular',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-loteria-tradicional',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-loterias-br-lbr',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-maluca-bahia',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-minas-mg',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-nordeste-montes-claros',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-paratodos-bahia',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-paratodos-pb',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-pt-rio',
-    'https://bancasdobicho.com.br/resultados-jogo-do-bicho-pt-sp'
+    'https://bancasdobicho.com.br/bancas'
   ];
 
   // Configuração de proxies (Mantida a rotação que funciona bem)
@@ -974,9 +954,8 @@ async function buscarResultadoLoteriaSonho() {
     const resultado = await processarFonte(url, proxies);
     
     if (resultado) {
-      // Dispara busca nas outras fontes em background para preencher a grade
-      const fontesRestantes = fontes.slice(i + 1);
-      buscarBancasRestantes(fontesRestantes, proxies);
+      // Como agora usamos uma única fonte principal, não há mais "restantes".
+      // A própria chamada já preenche a grade com todos os resultados da página.
       
       return resultado;
     }
@@ -985,17 +964,7 @@ async function buscarResultadoLoteriaSonho() {
   throw new Error("Não foi possível extrair de nenhuma fonte");
 }
 
-// Função que roda em segundo plano para preencher a grade
-async function buscarBancasRestantes(fontes, proxies) {
-  // console.log("🔄 Buscando outras bancas em segundo plano...");
-  for (const url of fontes) {
-    const achou = await processarFonte(url, proxies);
-    if (achou) {
-      renderizarGradeResultados();
-    }
-  }
-  // console.log("✅ Busca de background finalizada.");
-}
+// A função buscarBancasRestantes foi removida pois a nova fonte única já contém todos os dados.
 
 // ============================================================
 // NOVA LÓGICA DE EXTRAÇÃO (REFATORADA)
@@ -1032,103 +1001,67 @@ async function processarFonte(url, proxies) {
 }
 
 function analisarHTML(html, url) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  const textoPagina = (doc.body.innerText || doc.body.textContent || "").split('\n');
-  
-  const anoAtual = new Date().getFullYear();
-  let bancaAtual = null;
-  let horarioAtual = "";
-  let numerosBuffer = [];
-  let resultadoPrincipal = null;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    let resultadoPrincipal = null;
 
-  // Tenta identificar a banca principal pelo URL se não achar no texto
-  let bancaPadraoUrl = "Outra Banca";
-  if (url.includes("abaese")) bancaPadraoUrl = "Abaese";
-  else if (url.includes("aval")) bancaPadraoUrl = "Aval";
-  else if (url.includes("lotece")) bancaPadraoUrl = "Lotece";
-  else if (url.includes("federal")) bancaPadraoUrl = "Federal";
-  else if (url.includes("pt-rio")) bancaPadraoUrl = "PT Rio";
-  else if (url.includes("pt-sp")) bancaPadraoUrl = "PT SP";
-  else if (url.includes("look")) bancaPadraoUrl = "Look";
-  else if (url.includes("nacional")) bancaPadraoUrl = "Nacional";
-  else if (url.includes("bandeirantes")) bancaPadraoUrl = "Bandeirantes";
-  else if (url.includes("caminho")) bancaPadraoUrl = "Caminho da Sorte";
+    // Nova estratégia focada em https://bancasdobicho.com.br/bancas
+    // O seletor busca os contêineres de cada resultado individual na página.
+    const blocosResultados = doc.querySelectorAll('.w-full.rounded.border.p-4.mb-4');
 
-  // Regex para horário (12:00, 14h30)
-  const regexHorario = /(\d{1,2}:\d{2})|(\d{1,2}\s*[hH])/;
-
-  // Itera linha por linha do texto da página
-  for (let i = 0; i < textoPagina.length; i++) {
-    const linha = textoPagina[i].trim();
-    if (linha.length < 2) continue;
-
-    // 1. Verifica se a linha é um Título de Banca
-    const bancaEncontrada = BANCAS.find(b => linha.toLowerCase().includes(b.toLowerCase()));
-    
-    if (bancaEncontrada && linha.length < 60) {
-      // Se já tínhamos uma banca sendo processada e ela tem números suficientes, salva
-      if (bancaAtual && numerosBuffer.length >= 5) {
-        resultadosPorBanca[bancaAtual] = { valores: [...numerosBuffer], horario: horarioAtual || "Hoje" };
-        if (!resultadoPrincipal) resultadoPrincipal = { valores: [...numerosBuffer], bancaDetectada: bancaAtual, horario: horarioAtual };
-      }
-      
-      // Inicia nova banca
-      bancaAtual = bancaEncontrada;
-      numerosBuffer = [];
-      
-      // Tenta achar horário na mesma linha
-      const matchH = linha.match(regexHorario);
-      horarioAtual = matchH ? matchH[0].replace(/\s/g, '') : "";
-      continue;
+    if (blocosResultados.length === 0) {
+        console.warn("[Parser] Nenhum bloco de resultado encontrado. A estrutura do site pode ter mudado.");
+        return null;
     }
 
-    // 2. Se não achou horário no título, tenta na linha seguinte
-    if (bancaAtual && !horarioAtual) {
-      const matchH = linha.match(regexHorario);
-      if (matchH) horarioAtual = matchH[0].replace(/\s/g, '');
-    }
+    for (const bloco of blocosResultados) {
+        const tituloEl = bloco.querySelector('h2');
+        if (!tituloEl) continue;
 
-    // 3. Procura números de milhar (1234 ou 1.234)
-    // Regex: Pega 4 digitos sozinhos OU 1.3 digitos
-    const matches = linha.match(/(?<!\d)(?:\d{4}|\d{1}\.\d{3})(?!\d)/g);
-    
-    if (matches) {
-      for (let m of matches) {
-        const num = parseInt(m.replace(/\./g, ''));
-        // Filtra anos e telefones
-        if (num >= 2023 && num <= 2026) continue;
-        
-        // Adiciona ao buffer da banca atual
-        if (bancaAtual) {
-          if (numerosBuffer.length < 10) numerosBuffer.push(num); // Pega até 10 prêmios
-        } else {
-          // Se não tem banca definida, usa a padrão do URL
-          bancaAtual = bancaPadraoUrl;
-          numerosBuffer.push(num);
+        const tituloTexto = tituloEl.textContent.trim();
+        // Regex para capturar (NOME DA BANCA) (HORARIO) - (DATA)
+        const matchTitulo = /^(.*?)\s*(\d{2}:\d{2})\s*-\s*\d{2}\/\d{2}\/\d{4}/.exec(tituloTexto);
+        if (!matchTitulo) continue;
+
+        const bancaNome = matchTitulo[1].trim();
+        const horario = matchTitulo[2].trim();
+
+        // Extrai os números dos prêmios de dentro do bloco
+        const numerosEls = bloco.querySelectorAll('.font-bold.text-lg');
+        const numeros = Array.from(numerosEls)
+            .map(el => parseInt(el.textContent.replace(/\D/g, '')))
+            .filter(n => !isNaN(n) && (n < 2023 || n > 2026)); // Filtra anos
+
+        if (bancaNome && numeros.length >= 5) {
+            // Salva no objeto global para a grade de bancas
+            resultadosPorBanca[bancaNome] = {
+                valores: numeros.slice(0, 10),
+                horario: horario
+            };
+
+            // Define o primeiro resultado válido como o principal a ser exibido na tela
+            if (!resultadoPrincipal) {
+                resultadoPrincipal = {
+                    valores: numeros.slice(0, 10),
+                    bancaDetectada: bancaNome,
+                    horario: horario
+                };
+            }
         }
-      }
     }
-  }
 
-  // Salva o último buffer processado
-  if (bancaAtual && numerosBuffer.length >= 5) {
-    resultadosPorBanca[bancaAtual] = { valores: [...numerosBuffer], horario: horarioAtual || "Hoje" };
-    if (!resultadoPrincipal) resultadoPrincipal = { valores: [...numerosBuffer], bancaDetectada: bancaAtual, horario: horarioAtual };
-  }
+    // Retorna o objeto para a função principal se algo foi encontrado
+    if (resultadoPrincipal) {
+        return {
+            valores: resultadoPrincipal.valores,
+            origem: 'real',
+            horario: resultadoPrincipal.horario,
+            fonte: url,
+            bancaDetectada: resultadoPrincipal.bancaDetectada
+        };
+    }
 
-  // Retorno para a função principal
-  if (resultadoPrincipal) {
-    return {
-      valores: resultadoPrincipal.valores,
-      origem: 'real',
-      horario: resultadoPrincipal.horario,
-      fonte: url,
-      bancaDetectada: resultadoPrincipal.bancaDetectada
-    };
-  }
-  
-  return null;
+    return null; // Nenhum resultado válido encontrado na página
 }
 
 // ============================
