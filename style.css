@@ -728,8 +728,13 @@ footer {
   font-size: 14px;
 }
 
-.btn-pagamento.mp, .btn-pagamento.pagbank {
-  display: none !important;
+.btn-pagamento.mp {
+  background: linear-gradient(135deg, #ffd166, #fcbf49);
+  color: #000;
+}
+
+.btn-pagamento.pagbank {
+  background: linear-gradient(135deg, #96c12e, #7fa523);
 }
 
 .btn-pagamento.stripe {
