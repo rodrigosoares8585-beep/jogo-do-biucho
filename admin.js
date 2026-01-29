@@ -56,6 +56,7 @@ window.abrirAba = function(abaId) {
   if (abaId === 'relatorios') carregarRelatoriosAdmin();
   if (abaId === 'confirmacoes') carregarConfirmacoesPendentes();
   if (abaId === 'transacoes') filtrarTransacoes();
+  if (abaId === 'bilhetes') carregarBilhetesAdmin();
   if (abaId === 'contas') carregarConfiguracoesPagamento();
 };
 
@@ -438,6 +439,77 @@ async function carregarConfiguracoesPagamento() {
 }
 
 window.filtrarUsuarios = () => carregarUsuariosAdmin(document.getElementById("filtro-usuarios").value);
+
+// ==============================
+// GERENCIAMENTO DE BILHETES
+// ==============================
+
+async function carregarBilhetesAdmin() {
+  const container = document.getElementById("lista-bilhetes-admin");
+  if (!container) return;
+
+  container.innerHTML = '<p class="vazio">Carregando bilhetes...</p>';
+
+  try {
+    await aguardarFirebase();
+    const querySnapshot = await window.getDocs(window.collection(window.db, "apostas"));
+    const apostas = [];
+    querySnapshot.forEach((doc) => {
+      apostas.push(doc.data());
+    });
+
+    // Ordenar por data decrescente
+    apostas.sort((a, b) => b.timestamp - a.timestamp);
+
+    if (apostas.length === 0) {
+      container.innerHTML = '<p class="vazio">Nenhum bilhete encontrado.</p>';
+      return;
+    }
+
+    container.innerHTML = apostas.map(aposta => {
+      const statusColor = aposta.status === 'Ganhou' ? '#64ff64' : aposta.status === 'Perdeu' ? '#ff6b6b' : '#ffa500';
+      const tipoFormatado = aposta.tipo.replace(/_/g, " ").toUpperCase();
+      let descricao = aposta.tipo === 'grupo' ? `Grupo ${aposta.nomeBicho || ''}` : `${tipoFormatado}: ${aposta.numero}`;
+      if (aposta.modalidade) {
+        descricao += aposta.modalidade === '1ao5' ? " (Cercado)" : " (Seco)";
+      }
+
+      return `
+        <div class="transacoes-admin" style="border-left: 3px solid ${statusColor}">
+          <div class="trans-esquerda">
+            <strong>${aposta.usuarioNome || 'Usuário'}</strong>
+            <small>ID: ${aposta.id}</small>
+            <small>${aposta.dataAposta}</small>
+          </div>
+          <div class="trans-centro">
+            <span class="tipo" style="background:rgba(255,255,255,0.1); color:#fff; margin-bottom:5px; display:inline-block;">${descricao}</span>
+            <div style="font-size:12px; opacity:0.8;">${aposta.banca} • ${aposta.horario}</div>
+          </div>
+          <div class="trans-direita">
+            <div class="valor">R$ ${aposta.valor.toFixed(2)}</div>
+            <div class="status" style="color: ${statusColor}">${aposta.status}</div>
+            <button class="btn-admin btn-excluir" style="margin-top:5px; padding:4px 8px;" onclick="excluirBilhete('${aposta.id}')">🗑️</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+  } catch (e) {
+    console.error("Erro ao carregar bilhetes:", e);
+    container.innerHTML = '<p class="vazio">Erro ao carregar bilhetes.</p>';
+  }
+}
+
+window.excluirBilhete = async function(id) {
+  if (confirm("⚠️ Tem certeza que deseja excluir este bilhete permanentemente?")) {
+    try {
+      await window.deleteDoc(window.doc(window.db, "apostas", id));
+      carregarBilhetesAdmin();
+    } catch (e) {
+      alert("Erro ao excluir: " + e.message);
+    }
+  }
+};
 
 // ==============================
 // TRANSAÇÕES GERAIS
