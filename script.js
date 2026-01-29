@@ -862,20 +862,40 @@ function renderizarGradeResultados() {
 
   const btnStyle = "background:rgba(0, 255, 213, 0.1); border:1px solid #00ffd5; color:#00ffd5; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:11px; transition:all 0.2s; display:flex; align-items:center; gap:5px;";
 
-  wrapper.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin: 30px 0 15px 0; padding: 0 5px;">
+  // 1. HEADER (Cria ou Atualiza)
+  let header = wrapper.querySelector(".grade-header");
+  if (!header) {
+    header = document.createElement("div");
+    header.className = "grade-header";
+    header.style.cssText = "display:flex; justify-content:space-between; align-items:center; margin: 30px 0 15px 0; padding: 0 5px;";
+    wrapper.appendChild(header);
+  }
+
+  const headerHTML = `
       <h3 style="margin:0; color:#94a3b8; font-size:14px; text-transform:uppercase; letter-spacing:1px;">
         📊 Resultados por Banca (${bancas.length})
       </h3>
       <button onclick="exportarResultadosCSV()" style="${btnStyle}" onmouseover="this.style.background='#00ffd5';this.style.color='#0f172a'" onmouseout="this.style.background='rgba(0, 255, 213, 0.1)';this.style.color='#00ffd5'">
         📥 Baixar CSV
       </button>
-    </div>
-    <div class="grade-bancas">
-      ${bancas.map(banca => {
-        const dados = resultadosPorBanca[banca];
-        return `
-          <div class="card-banca-mini">
+  `;
+  if (header.innerHTML !== headerHTML) header.innerHTML = headerHTML;
+
+  // 2. GRID (Cria ou Seleciona)
+  let grid = wrapper.querySelector(".grade-bancas");
+  if (!grid) {
+    grid = document.createElement("div");
+    grid.className = "grade-bancas";
+    wrapper.appendChild(grid);
+  }
+
+  // 3. CARDS (Atualiza individualmente para evitar piscar)
+  bancas.forEach(banca => {
+    const dados = resultadosPorBanca[banca];
+    const cardId = `card-${banca.replace(/[^a-zA-Z0-9]/g, '-')}`;
+    let card = document.getElementById(cardId);
+
+    const cardHTML = `
             <h4>${banca} <span style="float:right; opacity:0.5; font-size:10px;">${dados.horario || ''}</span></h4>
             <div class="numeros-lista">
               ${dados.valores.map((n, i) => `
@@ -885,11 +905,18 @@ function renderizarGradeResultados() {
                 </div>
               `).join('')}
             </div>
-          </div>
-        `;
-      }).join('')}
-    </div>
-  `;
+    `;
+
+    if (!card) {
+      card = document.createElement("div");
+      card.className = "card-banca-mini";
+      card.id = cardId;
+      card.innerHTML = cardHTML;
+      grid.appendChild(card);
+    } else if (card.innerHTML !== cardHTML) {
+      card.innerHTML = cardHTML;
+    }
+  });
 }
 
 // Função Principal: Busca o primeiro resultado rápido e dispara o resto em background
