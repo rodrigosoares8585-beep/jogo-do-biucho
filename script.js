@@ -224,10 +224,54 @@ if (container) {
 // FUNÇÕES DE APOSTA
 // ============================
 
+let timeOffset = 0;
+
+async function sincronizarHorario() {
+  try {
+    // Busca horário oficial de Brasília para evitar fraudes no relógio local
+    const res = await fetch('https://worldtimeapi.org/api/timezone/America/Sao_Paulo');
+    if (res.ok) {
+      const data = await res.json();
+      const serverTime = new Date(data.datetime).getTime();
+      const localTime = Date.now();
+      timeOffset = serverTime - localTime;
+      console.log("🕒 Horário sincronizado. Offset:", timeOffset);
+    }
+  } catch (e) {
+    console.warn("⚠️ Falha ao sincronizar horário, usando relógio local:", e);
+  }
+}
+
+// Inicia a sincronização ao carregar o script
+sincronizarHorario();
+
+function iniciarRelogioBrasilia() {
+  const header = document.querySelector("header");
+  if (!header) return;
+
+  let relogio = document.getElementById("relogio-topo");
+  if (!relogio) {
+    relogio = document.createElement("div");
+    relogio.id = "relogio-topo";
+    // Insere logo após o parágrafo do header ou no final dele
+    header.appendChild(relogio);
+  }
+
+  setInterval(() => {
+    // Pega a hora atual ajustada pelo offset (sincronizada com API)
+    const agora = new Date(Date.now() + timeOffset);
+    
+    // Formata para o padrão brasileiro
+    const horaFormatada = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    
+    relogio.innerHTML = `🇧🇷 Brasília: <strong>${horaFormatada}</strong>`;
+  }, 1000);
+}
+
 function verificarHorarioLimite(horario) {
-  const agora = new Date();
+  const agora = new Date(Date.now() + timeOffset);
   const [h, m] = horario.split(':').map(Number);
-  const dataSorteio = new Date();
+  const dataSorteio = new Date(Date.now() + timeOffset);
   dataSorteio.setHours(h, m, 0, 0);
 
   // Limite é 15 minutos antes (15 * 60 * 1000 ms)
@@ -1251,6 +1295,7 @@ window.addEventListener("load", () => {
   renderizarHistorico();
   adicionarMascote();
   atualizarListaBilhetes();
+  iniciarRelogioBrasilia();
 
   // Recupera o último resultado para permitir conferência imediata
   const historico = JSON.parse(localStorage.getItem("historicoResultados")) || [];

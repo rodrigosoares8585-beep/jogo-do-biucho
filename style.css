@@ -63,6 +63,24 @@ header p {
   font-weight: 400;
 }
 
+#relogio-topo {
+  margin-top: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  display: inline-block;
+  padding: 5px 15px;
+  border-radius: 20px;
+  font-size: 13px;
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: 'Inter', monospace;
+  letter-spacing: 0.5px;
+}
+
+#relogio-topo strong {
+  color: #00ffd5;
+  font-weight: 700;
+}
+
 main {
   padding: 30px 20px;
   max-width: 1200px;
