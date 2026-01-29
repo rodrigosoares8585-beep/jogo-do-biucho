@@ -1005,61 +1005,74 @@ function analisarHTML(html, url) {
     const doc = parser.parseFromString(html, 'text/html');
     let resultadoPrincipal = null;
 
-    // ESTRATÉGIA GENÉRICA E ROBUSTA (Funciona mesmo se o site mudar o CSS)
-    // Busca por elementos de cabeçalho (H2, H3, etc) que contenham horários (HH:MM)
-    const headers = doc.querySelectorAll('h2, h3, h4, div.font-bold'); 
+    // Limpeza de scripts/styles para evitar falsos positivos
+    doc.querySelectorAll('script, style, noscript').forEach(el => el.remove());
 
-    for (const header of headers) {
-        const textoHeader = (header.textContent || "").trim();
-        
-        // Regex para encontrar horário (Ex: 14:30, 14h30)
-        const matchHorario = /(\d{2}:\d{2})|(\d{2}h\d{2})/.exec(textoHeader);
+    // ESTRATÉGIA: Identificar blocos de resultado (Cards)
+    // Procura elementos que pareçam títulos de banca (contêm horário ou nome de banca)
+    const candidatos = doc.querySelectorAll('h1, h2, h3, h4, h5, div, span, p, strong, b');
+
+    for (const el of candidatos) {
+        const texto = (el.textContent || "").trim();
+        if (texto.length < 4 || texto.length > 150) continue;
+
+        // Regex para horário (HH:MM ou HHhMM)
+        const matchHorario = /(\d{2}:\d{2})|(\d{2}h\d{2})/.exec(texto);
         
         if (matchHorario) {
-            const horario = matchHorario[0];
+            // Verifica se é um título de banca conhecido ou tem palavras-chave
+            const temNomeBanca = BANCAS.some(b => texto.toLowerCase().includes(b.toLowerCase()));
+            const temPalavraChave = /resultado|jogo do bicho|deu no poste|banca/i.test(texto);
             
-            // Tenta extrair o nome da banca (tudo antes do horário)
-            let bancaNome = textoHeader.split(horario)[0]
-                .replace(/[-–]/g, '') // Remove traços
-                .replace(/\d{2}\/\d{2}\/\d{4}/, '') // Remove data se houver antes
-                .trim();
-            
-            if (bancaNome.length < 2) bancaNome = "Banca " + horario;
-
-            // Busca os números no container pai deste cabeçalho
-            // (Geralmente o card envolve o título e os números)
-            let container = header.parentElement;
-            
-            // Se o pai for muito genérico (ex: body ou div vazia), tenta subir mais um nível ou pegar irmãos
-            if (!container || container.innerText.length < 50) {
-                 // Tenta pegar o próximo elemento irmão se o título estiver fora do card de números
-                 if (header.nextElementSibling) container = header.nextElementSibling;
-            }
-
-            if (container) {
-                const textoContainer = container.innerText || container.textContent || "";
+            if (temNomeBanca || temPalavraChave || texto.includes("-")) {
+                const horario = matchHorario[0];
                 
-                // Busca sequências de 4 dígitos (milhares)
-                // Aceita 1234 ou 1.234
-                const matches = textoContainer.match(/(?<!\d)(?:\d{4}|\d{1}\.\d{3})(?!\d)/g);
+                // Extrai nome da banca
+                let bancaNome = texto.split(horario)[0]
+                    .replace(/[-–]/g, '')
+                    .replace(/\d{2}\/\d{2}\/\d{4}/, '') // Remove data
+                    .trim();
+                
+                if (bancaNome.length < 2) bancaNome = "Banca " + horario;
+
+                // Busca números no container pai e arredores
+                let container = el.parentElement;
+                let textoBusca = container.innerText || container.textContent || "";
+
+                // Se o container for pequeno, sobe um nível (mas não até o body)
+                if (textoBusca.length < 50 && container.parentElement && container.parentElement.tagName !== 'BODY') {
+                    container = container.parentElement;
+                    textoBusca = container.innerText || container.textContent || "";
+                }
+
+                // Se não achou números, tenta o próximo elemento irmão (caso o título esteja separado)
+                if (!/\d{4}/.test(textoBusca)) {
+                    let proximo = el.nextElementSibling;
+                    if (proximo) {
+                        textoBusca += " " + (proximo.innerText || proximo.textContent || "");
+                    }
+                }
+
+                // Extrai milhares (4 dígitos ou 1.234)
+                const matches = textoBusca.match(/(?<!\d)(?:\d{4}|\d{1}\.\d{3})(?!\d)/g);
                 
                 if (matches) {
                     const numeros = matches
                         .map(n => parseInt(n.replace(/\./g, '')))
                         .filter(n => n < 2023 || n > 2026); // Filtra anos
                     
-                    // Remove duplicatas
                     const unicos = [...new Set(numeros)];
 
                     if (unicos.length >= 5) {
-                        // Achamos uma banca válida!
+                        // Salva resultado
                         resultadosPorBanca[bancaNome] = {
                             valores: unicos.slice(0, 10),
                             horario: horario
                         };
 
-                        // Define o primeiro encontrado como principal (para o destaque)
-                        if (!resultadoPrincipal) {
+                        // Define principal (prioriza PT/Federal se achar)
+                        const ehPrioridade = /PT|Federal|Nacional|Rio/i.test(bancaNome);
+                        if (!resultadoPrincipal || (ehPrioridade && !/PT|Federal|Nacional|Rio/i.test(resultadoPrincipal.bancaDetectada))) {
                             resultadoPrincipal = {
                                 valores: unicos.slice(0, 10),
                                 bancaDetectada: bancaNome,
