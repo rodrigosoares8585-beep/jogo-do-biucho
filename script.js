@@ -1065,7 +1065,6 @@ async function processarBancaIndividual(url, proxies) {
                     // Salva no objeto global
                     resultadosPorBanca[nomeBanca] = {
                         valores: unicos.slice(0, 10),
-                        horario: horario || "Hoje"
                         horario: horario || "Hoje",
                         data: data || ""
                     };

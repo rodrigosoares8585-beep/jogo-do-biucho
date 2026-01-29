@@ -699,7 +699,7 @@ window.exportarRelatorioPDF = function() {
   const fundo = document.getElementById("fundo-caixa") ? document.getElementById("fundo-caixa").innerText : "R$ 0,00";
   const caixaNormal = document.getElementById("caixa-normal") ? document.getElementById("caixa-normal").innerText : "R$ 0,00";
   const saldoOperacional = document.getElementById("saldo-operacional") ? document.getElementById("saldo-operacional").innerText : "R$ 0,00";
-  const saldo = document.getElementById("saldo-caixa").innerText;
+  const saldo = document.getElementById("saldo-caixa") ? document.getElementById("saldo-caixa").innerText : "R$ 0,00";
   const usuarios = document.getElementById("total-usuarios").innerText;
 
   let yPos = 65;
