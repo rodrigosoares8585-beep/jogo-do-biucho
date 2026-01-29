@@ -1138,6 +1138,14 @@ async function buscarResultadoLoteriaSonho() {
                 data: "Hoje"
             };
             achouNaLista = true;
+            
+            // Garante conferência de apostas para esta banca imediatamente
+            verificarApostas({
+                valores: unicos.slice(0, 10),
+                bancaDetectada: bancaEncontrada,
+                horario: horario,
+                data: "Hoje"
+            });
         }
     }
   }
@@ -1250,6 +1258,14 @@ async function processarBancaIndividual(url, proxies) {
                     
                     // Atualiza a grade visualmente à medida que os dados chegam
                     renderizarGradeResultados(); 
+                    
+                    // Garante conferência de apostas para esta banca imediatamente
+                    verificarApostas({
+                        valores: unicos.slice(0, 10),
+                        bancaDetectada: nomeBanca,
+                        horario: horario,
+                        data: data
+                    });
 
                     return {
                         valores: unicos.slice(0, 10),
