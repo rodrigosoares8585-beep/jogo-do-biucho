@@ -61,11 +61,10 @@ const BANCAS = [
   "Abaese", "Itabaiana", "Aval", "Bandeirantes", "Bicho RS", "Caminho da Sorte", 
   "Deu no Poste", "Aliança", "Federal", "Look", "Lotece", "Lotep", "Popular", 
   "Tradicional", "LBR", "Maluca", "Nordeste", 
-  "PT-Rio", "PT Rio", "PT-SP", "PT SP", "Nacional", "Goiás", "Bahia", "Ceará", "Brasília",
+  "PT-Rio", "PT Rio", "PT-SP", "PT SP", 
   "CL", "Preferida", "Salvation", "Corujinha", "Amnésia", "Ouro", "União", 
   "Adesp", "Global", "Local", "Águia", "Fênix", "Ponte", "Sorte", "Confiança",
   "Redenção", "Vila", "Capital", "Cotepe", "Potiguar", "Jangadeiro", "Seninha",
-  "Alvorada", "Loteria dos Sonhos", "Pernambuco",
   "PTM", "PT", "PTV", "PTN", "COR"
 ];
 const HORARIOS = ["12:45", "15:30", "18:30", "11:00", "14:00", "16:00", "18:00", "21:00", "Federal (Qua/Sab)"];
@@ -557,11 +556,6 @@ async function realizarSorteio() {
     timerDisplay.innerText = "⚠️ Buscando...";
     timerDisplay.style.color = "#ff6b6b";
     
-    // Se tivermos resultados em cache, mostra eles mesmo com erro na atualização
-    if (Object.keys(resultadosPorBanca).length > 0) {
-        renderizarGradeResultados();
-    }
-
     // Se falhar, tenta novamente em 10 segundos
     tempoRestante = 10;
     iniciarTimer();
@@ -967,18 +961,6 @@ async function buscarResultadoLoteriaSonho() {
     }
   }
   
-  // Fallback: Se falhou extração mas tem cache (ex: de uma execução anterior ou parcial)
-  const bancasCache = Object.keys(resultadosPorBanca);
-  if (bancasCache.length > 0) {
-      const primeira = bancasCache[0];
-      return {
-          valores: resultadosPorBanca[primeira].valores,
-          origem: 'cache',
-          horario: resultadosPorBanca[primeira].horario,
-          bancaDetectada: primeira
-      };
-  }
-
   throw new Error("Não foi possível extrair de nenhuma fonte");
 }
 
@@ -1046,20 +1028,11 @@ function analisarHTML(html, url) {
                 const horario = matchHorario[0];
                 
                 // Extrai nome da banca
-                let parts = texto.split(horario);
-                let bancaNome = parts[0]
+                let bancaNome = texto.split(horario)[0]
                     .replace(/[-–]/g, '')
                     .replace(/\d{2}\/\d{2}\/\d{4}/, '') // Remove data
                     .trim();
                 
-                // Se o nome estava depois do horário (ex: 14:00 PT Rio)
-                if (bancaNome.length < 2 && parts[1]) {
-                    bancaNome = parts[1]
-                        .replace(/[-–]/g, '')
-                        .replace(/\d{2}\/\d{2}\/\d{4}/, '')
-                        .trim();
-                }
-
                 if (bancaNome.length < 2) bancaNome = "Banca " + horario;
 
                 // Busca números no container pai e arredores
@@ -1081,8 +1054,7 @@ function analisarHTML(html, url) {
                 }
 
                 // Extrai milhares (4 dígitos ou 1.234)
-                // Regex compatível (sem lookbehind) para evitar erros em Safari/iOS antigos
-                const matches = textoBusca.match(/(?:\b\d{4}\b|\b\d{1}\.\d{3}\b)/g);
+                const matches = textoBusca.match(/(?<!\d)(?:\d{4}|\d{1}\.\d{3})(?!\d)/g);
                 
                 if (matches) {
                     const numeros = matches
