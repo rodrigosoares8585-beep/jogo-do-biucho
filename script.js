@@ -1081,7 +1081,6 @@ function analisarHTML(html, url) {
                 }
 
                 // Extrai milhares (4 dígitos ou 1.234)
-                const matches = textoBusca.match(/(?<!\d)(?:\d{4}|\d{1}\.\d{3})(?!\d)/g);
                 // Regex compatível (sem lookbehind) para evitar erros em Safari/iOS antigos
                 const matches = textoBusca.match(/(?:\b\d{4}\b|\b\d{1}\.\d{3}\b)/g);
                 
