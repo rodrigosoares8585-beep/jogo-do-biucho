@@ -1033,9 +1033,49 @@ async function buscarResultadoLoteriaSonho() {
       throw new Error("Não foi possível acessar a lista de bancas.");
   }
 
-  // 2. Extrair links das bancas individuais
+  // 2. Tenta extrair resultados DIRETAMENTE da página de lista (Mais rápido e garantido)
   const parser = new DOMParser();
   const doc = parser.parseFromString(htmlLista, 'text/html');
+  
+  // Varre elementos da lista para achar resultados já visíveis
+  const containers = doc.querySelectorAll('div, li, article, tr, .banca-card');
+  let achouNaLista = false;
+
+  for (const el of containers) {
+    const texto = (el.textContent || "").trim();
+    if (texto.length < 10 || texto.length > 500) continue;
+
+    // Procura nome de banca conhecido
+    const bancaEncontrada = BANCAS.find(b => texto.includes(b));
+    if (!bancaEncontrada) continue;
+
+    // Procura horário (HH:MM)
+    const matchHorario = /(\d{2}:\d{2})/.exec(texto);
+    const horario = matchHorario ? matchHorario[0] : "Hoje";
+
+    // Procura números (pelo menos 5 milhares)
+    const matches = texto.match(/(?:\b\d{4}\b|\b\d{1}\.\d{3}\b)/g);
+    if (matches) {
+        const numeros = matches.map(n => parseInt(n.replace(/\./g, ''))).filter(n => n < 2023 || n > 2026);
+        const unicos = [...new Set(numeros)];
+        
+        if (unicos.length >= 5) {
+            resultadosPorBanca[bancaEncontrada] = {
+                valores: unicos.slice(0, 10),
+                horario: horario,
+                data: "Hoje"
+            };
+            achouNaLista = true;
+        }
+    }
+  }
+
+  if (achouNaLista) {
+      renderizarGradeResultados();
+      console.log("✅ Resultados parciais extraídos da lista principal.");
+  }
+
+  // 3. Extrair links das bancas individuais (Crawler para detalhes)
   // Seleciona links que começam com /resultados
   const linksElements = doc.querySelectorAll("a[href^='/resultados']");
   const links = Array.from(linksElements).map(a => a.getAttribute('href'));
@@ -1044,7 +1084,7 @@ async function buscarResultadoLoteriaSonho() {
 
   console.log(`🔗 Encontrados ${urlsUnicas.length} links de bancas. Iniciando extração...`);
 
-  // 3. Acessar cada banca individualmente (Crawler)
+  // 4. Acessar cada banca individualmente (Crawler)
   const promises = urlsUnicas.map(url => processarBancaIndividual(url, proxies));
   
   // Aguarda todas as requisições
@@ -1057,6 +1097,20 @@ async function buscarResultadoLoteriaSonho() {
       return destaque;
   }
   
+  // Se o crawler falhou mas achamos na lista, retorna um da lista
+  if (achouNaLista) {
+      const bancas = Object.keys(resultadosPorBanca);
+      if (bancas.length > 0) {
+          const primeira = bancas[0];
+          return {
+              valores: resultadosPorBanca[primeira].valores,
+              bancaDetectada: primeira,
+              horario: resultadosPorBanca[primeira].horario,
+              origem: 'lista'
+          };
+      }
+  }
+
   throw new Error("Nenhum resultado extraído das páginas individuais.");
 }
 
@@ -1077,7 +1131,7 @@ async function processarBancaIndividual(url, proxies) {
             const doc = parser.parseFromString(html, 'text/html');
 
             // Extração de Metadados (Nome, Data, Hora)
-            const h1 = doc.querySelector("h1");
+            const h1 = doc.querySelector("h1, h2, .titulo");
             let nomeBanca = h1 ? h1.textContent.trim() : "";
             
             // Limpa o nome (ex: "Resultado do Jogo do Bicho PT Rio" -> "PT Rio")
@@ -1104,7 +1158,7 @@ async function processarBancaIndividual(url, proxies) {
             }
 
             // Extração de Números (Milhares)
-            const textoPagina = doc.body.innerText || "";
+            const textoPagina = doc.body.innerText || doc.body.textContent || "";
             const matches = textoPagina.match(/(?:\b\d{4}\b|\b\d{1}\.\d{3}\b)/g);
             
             if (matches) {
