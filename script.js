@@ -927,10 +927,8 @@ function renderizarGradeResultados() {
 
 // Função Principal: Busca o primeiro resultado rápido e dispara o resto em background
 async function buscarResultadoLoteriaSonho() {
-  // A fonte principal agora é a página que agrega todas as bancas.
-  const fontes = [
-    'https://bancasdobicho.com.br/bancas'
-  ];
+  const baseUrl = 'https://bancasdobicho.com.br';
+  const urlLista = `${baseUrl}/bancas`;
 
   // Configuração de proxies (Mantida a rotação que funciona bem)
   const proxies = [
@@ -951,180 +949,133 @@ async function buscarResultadoLoteriaSonho() {
     }
   ];
 
-  // NÃO limpamos resultadosPorBanca = {} para evitar que os cards pisquem.
-  // Os dados serão apenas atualizados/sobrescritos.
+  // 1. Obter a lista de bancas (Página /bancas)
+  let htmlLista = null;
+  for (const proxy of proxies) {
+    try {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), 15000);
+      const res = await fetch(proxy.getUrl(urlLista), { signal: controller.signal });
+      clearTimeout(id);
+      if (res.ok) {
+        htmlLista = await proxy.extract(res);
+        if (htmlLista && htmlLista.length > 100) break;
+      }
+    } catch (e) { console.error("Erro ao buscar lista:", e); }
+  }
 
-  // Tenta encontrar o resultado principal o mais rápido possível
-  for (let i = 0; i < fontes.length; i++) {
-    const url = fontes[i];
-    const resultado = await processarFonte(url, proxies);
-    
-    if (resultado) {
-      // Como agora usamos uma única fonte principal, não há mais "restantes".
-      // A própria chamada já preenche a grade com todos os resultados da página.
-      
-      return resultado;
-    }
+  if (!htmlLista) {
+      // Fallback: Se falhar a lista mas tiver cache
+      const bancasCache = Object.keys(resultadosPorBanca);
+      if (bancasCache.length > 0) {
+          const primeira = bancasCache[0];
+          return {
+              valores: resultadosPorBanca[primeira].valores,
+              origem: 'cache',
+              horario: resultadosPorBanca[primeira].horario,
+              bancaDetectada: primeira
+          };
+      }
+      throw new Error("Não foi possível acessar a lista de bancas.");
+  }
+
+  // 2. Extrair links das bancas individuais
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlLista, 'text/html');
+  // Seleciona links que começam com /resultados
+  const linksElements = doc.querySelectorAll("a[href^='/resultados']");
+  const links = Array.from(linksElements).map(a => a.getAttribute('href'));
+  // Normaliza URLs
+  const urlsUnicas = [...new Set(links)].map(href => href.startsWith('http') ? href : `${baseUrl}${href}`);
+
+  console.log(`🔗 Encontrados ${urlsUnicas.length} links de bancas. Iniciando extração...`);
+
+  // 3. Acessar cada banca individualmente (Crawler)
+  const promises = urlsUnicas.map(url => processarBancaIndividual(url, proxies));
+  
+  // Aguarda todas as requisições
+  const resultados = await Promise.all(promises);
+  const validos = resultados.filter(r => r !== null);
+
+  if (validos.length > 0) {
+      // Retorna um resultado para o card principal (Prioriza Lotece/PT/Federal)
+      const destaque = validos.find(r => /Lotece|PT|Federal/i.test(r.bancaDetectada)) || validos[0];
+      return destaque;
   }
   
-  // Fallback: Se falhou extração mas tem cache (ex: de uma execução anterior ou parcial)
-  const bancasCache = Object.keys(resultadosPorBanca);
-  if (bancasCache.length > 0) {
-      const primeira = bancasCache[0];
-      return {
-          valores: resultadosPorBanca[primeira].valores,
-          origem: 'cache',
-          horario: resultadosPorBanca[primeira].horario,
-          bancaDetectada: primeira
-      };
-  }
-
-  throw new Error("Não foi possível extrair de nenhuma fonte");
+  throw new Error("Nenhum resultado extraído das páginas individuais.");
 }
 
-// A função buscarBancasRestantes foi removida pois a nova fonte única já contém todos os dados.
-
-// ============================================================
-// NOVA LÓGICA DE EXTRAÇÃO (REFATORADA)
-// ============================================================
-async function processarFonte(url, proxies) {
-  for (const proxy of proxies) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-        
-        const response = await fetch(proxy.getUrl(url), { signal: controller.signal });
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) continue;
-        
-        const htmlContent = await proxy.extract(response);
-        if (!htmlContent) continue;
-
-        if (htmlContent.includes("Attention Required! | Cloudflare") || htmlContent.includes("Just a moment...")) {
-          continue;
-        }
-
-        // Analisa o HTML e extrai todas as bancas encontradas
-        const dadosExtraidos = analisarHTML(htmlContent, url);
-        
-        // Se encontrou algo, retorna o primeiro resultado válido para o display principal
-        if (dadosExtraidos) return dadosExtraidos;
-
-      } catch (e) {
-        // console.warn(`Falha ao tentar ${url}:`, e); // Silencia erros individuais para não poluir
-      }
-    }
-    return null; // Se falhar todos proxies desta URL
-}
-
-function analisarHTML(html, url) {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    let resultadoPrincipal = null;
-
-    // Limpeza de scripts/styles para evitar falsos positivos
-    doc.querySelectorAll('script, style, noscript').forEach(el => el.remove());
-
-    // ESTRATÉGIA: Identificar blocos de resultado (Cards)
-    // Procura elementos que pareçam títulos de banca (contêm horário ou nome de banca)
-    const candidatos = doc.querySelectorAll('h1, h2, h3, h4, h5, div, span, p, strong, b');
-
-    for (const el of candidatos) {
-        const texto = (el.textContent || "").trim();
-        if (texto.length < 4 || texto.length > 150) continue;
-
-        // Regex para horário (HH:MM ou HHhMM)
-        const matchHorario = /(\d{2}:\d{2})|(\d{2}h\d{2})/.exec(texto);
-        
-        if (matchHorario) {
-            // Verifica se é um título de banca conhecido ou tem palavras-chave
-            const temNomeBanca = BANCAS.some(b => texto.toLowerCase().includes(b.toLowerCase()));
-            const temPalavraChave = /resultado|jogo do bicho|deu no poste|banca/i.test(texto);
+// Função auxiliar para processar uma única URL de banca
+async function processarBancaIndividual(url, proxies) {
+    for (const proxy of proxies) {
+        try {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), 10000); // 10s timeout por página
+            const res = await fetch(proxy.getUrl(url), { signal: controller.signal });
+            clearTimeout(id);
             
-            if (temNomeBanca || temPalavraChave || texto.includes("-")) {
-                const horario = matchHorario[0];
+            if (!res.ok) continue;
+            const html = await proxy.extract(res);
+            if (!html) continue;
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            // Extração de Metadados (Nome, Data, Hora)
+            const h1 = doc.querySelector("h1");
+            let nomeBanca = h1 ? h1.textContent.trim() : "";
+            
+            // Limpa o nome (ex: "Resultado do Jogo do Bicho PT Rio" -> "PT Rio")
+            nomeBanca = nomeBanca.replace(/Resultado.*do Bicho/i, "").replace(/[-–]/g, "").trim();
+            if (!nomeBanca) nomeBanca = "Banca Desconhecida";
+
+            let horario = "";
+            const infoDiv = doc.querySelector(".resultado-info");
+            if (infoDiv) {
+                const horaSpan = infoDiv.querySelector(".hora");
+                if (horaSpan) horario = horaSpan.textContent.trim();
+            }
+            if (!horario) {
+                // Tenta achar horário no texto (HH:MM)
+                const match = /(\d{2}:\d{2})/.exec(html);
+                if (match) horario = match[0];
+            }
+
+            // Extração de Números (Milhares)
+            const textoPagina = doc.body.innerText || "";
+            const matches = textoPagina.match(/(?:\b\d{4}\b|\b\d{1}\.\d{3}\b)/g);
+            
+            if (matches) {
+                const numeros = matches
+                    .map(n => parseInt(n.replace(/\./g, '')))
+                    .filter(n => n < 2023 || n > 2026); // Filtra anos
                 
-                // Extrai nome da banca
-                let parts = texto.split(horario);
-                let bancaNome = parts[0]
-                    .replace(/[-–]/g, '')
-                    .replace(/\d{2}\/\d{2}\/\d{4}/, '') // Remove data
-                    .trim();
+                const unicos = [...new Set(numeros)];
                 
-                // Se o nome estava depois do horário (ex: 14:00 PT Rio)
-                if (bancaNome.length < 2 && parts[1]) {
-                    bancaNome = parts[1]
-                        .replace(/[-–]/g, '')
-                        .replace(/\d{2}\/\d{2}\/\d{4}/, '')
-                        .trim();
-                }
-
-                if (bancaNome.length < 2) bancaNome = "Banca " + horario;
-
-                // Busca números no container pai e arredores
-                let container = el.parentElement;
-                let textoBusca = container.innerText || container.textContent || "";
-
-                // Se o container for pequeno, sobe um nível (mas não até o body)
-                if (textoBusca.length < 50 && container.parentElement && container.parentElement.tagName !== 'BODY') {
-                    container = container.parentElement;
-                    textoBusca = container.innerText || container.textContent || "";
-                }
-
-                // Se não achou números, tenta o próximo elemento irmão (caso o título esteja separado)
-                if (!/\d{4}/.test(textoBusca)) {
-                    let proximo = el.nextElementSibling;
-                    if (proximo) {
-                        textoBusca += " " + (proximo.innerText || proximo.textContent || "");
-                    }
-                }
-
-                // Extrai milhares (4 dígitos ou 1.234)
-                // Regex compatível (sem lookbehind) para evitar erros em Safari/iOS antigos
-                const matches = textoBusca.match(/(?:\b\d{4}\b|\b\d{1}\.\d{3}\b)/g);
-                
-                if (matches) {
-                    const numeros = matches
-                        .map(n => parseInt(n.replace(/\./g, '')))
-                        .filter(n => n < 2023 || n > 2026); // Filtra anos
+                if (unicos.length >= 5) {
+                    // Salva no objeto global
+                    resultadosPorBanca[nomeBanca] = {
+                        valores: unicos.slice(0, 10),
+                        horario: horario || "Hoje"
+                    };
                     
-                    const unicos = [...new Set(numeros)];
+                    // Atualiza a grade visualmente à medida que os dados chegam
+                    renderizarGradeResultados(); 
 
-                    if (unicos.length >= 5) {
-                        // Salva resultado
-                        resultadosPorBanca[bancaNome] = {
-                            valores: unicos.slice(0, 10),
-                            horario: horario
-                        };
-
-                        // Define principal (prioriza PT/Federal se achar)
-                        const ehPrioridade = /PT|Federal|Nacional|Rio/i.test(bancaNome);
-                        if (!resultadoPrincipal || (ehPrioridade && !/PT|Federal|Nacional|Rio/i.test(resultadoPrincipal.bancaDetectada))) {
-                            resultadoPrincipal = {
-                                valores: unicos.slice(0, 10),
-                                bancaDetectada: bancaNome,
-                                horario: horario
-                            };
-                        }
-                    }
+                    return {
+                        valores: unicos.slice(0, 10),
+                        bancaDetectada: nomeBanca,
+                        horario: horario,
+                        fonte: url
+                    };
                 }
             }
-        }
+            // Se funcionou com um proxy, não precisa tentar os outros para esta URL
+            break; 
+        } catch (e) {}
     }
-
-    // Retorna o objeto para a função principal se algo foi encontrado
-    if (resultadoPrincipal) {
-        return {
-            valores: resultadoPrincipal.valores,
-            origem: 'real',
-            horario: resultadoPrincipal.horario,
-            fonte: url,
-            bancaDetectada: resultadoPrincipal.bancaDetectada
-        };
-    }
-
-    return null; // Nenhum resultado válido encontrado na página
+    return null;
 }
 
 // ============================
