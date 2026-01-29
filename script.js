@@ -1041,7 +1041,56 @@ async function processarFonte(url, proxies) {
         }
 
         // ============================
-        // EXTRAÇÃO PRIORITÁRIA (1º ao 5º PRÊMIO)
+        // 1. DETECÇÃO DE BANCAS ESPECÍFICAS (BUSCA POR TÍTULOS)
+        // ============================
+        // Movemos para o topo para garantir que todas as bancas sejam lidas antes de qualquer retorno
+        const titulos = doc.querySelectorAll('h1, h2, h3, h4, h5, h6, strong, b, td, th, .titulo, .banca, span, div, p');
+
+        for (let titulo of titulos) {
+          const textoTitulo = (titulo.textContent || "").trim();
+          
+          // Verifica se o título corresponde a uma das nossas bancas
+          const bancaEncontrada = BANCAS.find(b => textoTitulo.toLowerCase().includes(b.toLowerCase()));
+          
+          if (bancaEncontrada) {
+            // Evita falsos positivos em textos muito longos
+            if (textoTitulo.length > 50) continue;
+
+            // Encontrou um título de banca. Tenta achar a tabela/lista IMEDIATAMENTE após este título
+            let containerBusca = titulo.nextElementSibling;
+            let numerosBanca = [];
+            let tentativas = 0;
+            
+            // Tenta extrair números dos elementos seguintes
+            while (containerBusca && tentativas < 30) {
+              const textoContainer = containerBusca.innerText || containerBusca.textContent || "";
+              
+              // Pula containers muito pequenos
+              if (textoContainer.length < 2) { containerBusca = containerBusca.nextElementSibling; tentativas++; continue; }
+
+              // Procura sequências de 4 dígitos
+              const matches = textoContainer.match(/\b\d{4}\b/g);
+              if (matches) {
+                const validos = matches.map(n => parseInt(n)).filter(n => n < 2023 || n > 2026);
+                for (const num of validos) {
+                   if (numerosBanca.length < 5) numerosBanca.push(num);
+                }
+                
+                if (numerosBanca.length >= 3) { // Aceita parciais (min 3)
+                  resultadosPorBanca[bancaEncontrada] = { valores: numerosBanca, horario: "Hoje" };
+                }
+              }
+              // Se já achou 5, pode parar de procurar para ESTA banca
+              if (numerosBanca.length >= 5) break;
+
+              containerBusca = containerBusca.nextElementSibling;
+              tentativas++;
+            }
+          }
+        }
+
+        // ============================
+        // 2. EXTRAÇÃO PRIORITÁRIA GENÉRICA (TABELAS)
         // ============================
         const premiosPrioritarios = Array(5).fill(undefined);
 
@@ -1099,52 +1148,6 @@ async function processarFonte(url, proxies) {
             fonte: url,
             bancaDetectada: bancaDestaUrl
           };
-        }
-
-        // Procura por títulos que contenham nomes das bancas conhecidas (FALLBACK)
-        // Adicionado div e p para maior alcance na detecção de nomes de bancas
-        const titulos = doc.querySelectorAll('h1, h2, h3, h4, h5, h6, strong, b, td, th, .titulo, .banca, span, div, p');
-
-        for (let titulo of titulos) {
-          const textoTitulo = (titulo.textContent || "").trim();
-          
-          // Verifica se o título corresponde a uma das nossas bancas
-          const bancaEncontrada = BANCAS.find(b => textoTitulo.toLowerCase().includes(b.toLowerCase()));
-          
-          if (bancaEncontrada) {
-            // Evita falsos positivos em textos muito longos (ex: parágrafos explicativos)
-            if (textoTitulo.length > 50) continue;
-
-            // Encontrou um título de banca. Tenta achar a tabela/lista IMEDIATAMENTE após este título
-            // Procura nos próximos irmãos (aumentado alcance para pular datas/ads)
-            let containerBusca = titulo.nextElementSibling;
-            let numerosBanca = [];
-            let tentativas = 0;
-            
-            // Tenta extrair números dos elementos seguintes (tabela ou lista)
-            while (containerBusca && tentativas < 30) {
-              const textoContainer =containerBusca.innerText || containerBusca.textContent || "";
-              
-              // Pula containers muito pequenos ou vazios (provavelmente separadores)
-              if (textoContainer.length < 2) { containerBusca = containerBusca.nextElementSibling; tentativas++; continue; }
-
-              // Procura sequências de 4 dígitos
-              const matches = textoContainer.match(/\b\d{4}\b/g);
-              if (matches) {
-                const validos = matches.map(n => parseInt(n)).filter(n => n < 2023 || n > 2026);
-                for (const num of validos) {
-                   if (numerosBanca.length < 5) numerosBanca.push(num);
-                }
-                
-                if (numerosBanca.length >= 3) { // Aceita parciais (min 3)
-                  resultadosPorBanca[bancaEncontrada] = { valores: numerosBanca, horario: "Hoje" };
-                  // Removido o break para permitir encontrar múltiplas bancas na mesma página
-                }
-              }
-              containerBusca = containerBusca.nextElementSibling;
-              tentativas++;
-            }
-          }
         }
 
         const premiosEncontrados = [];
