@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700&display=swap');
 
 * {
   box-sizing: border-box;
@@ -72,7 +72,7 @@ header p {
   font-size: 13px;
   color: #a3a3a3;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  font-family: 'Inter', monospace;
+  font-family: 'Orbitron', monospace;
   letter-spacing: 0.5px;
 }
 
@@ -162,7 +162,7 @@ main {
   font-size: 28px;
   font-weight: 700;
   color: #fbbf24;
-  font-family: 'Inter', monospace; /* Monospace for numbers alignment */
+  font-family: 'Orbitron', sans-serif; /* Fonte estilo digital */
   letter-spacing: 1px;
 }
 
@@ -728,13 +728,8 @@ footer {
   font-size: 14px;
 }
 
-.btn-pagamento.mp {
-  background: linear-gradient(135deg, #ffd166, #fcbf49);
-  color: #000;
-}
-
-.btn-pagamento.pagbank {
-  background: linear-gradient(135deg, #96c12e, #7fa523);
+.btn-pagamento.mp, .btn-pagamento.pagbank {
+  display: none !important;
 }
 
 .btn-pagamento.stripe {
@@ -1755,7 +1750,7 @@ footer {
 
 .linha-result strong {
   color: #fff;
-  font-family: 'Inter', monospace;
+  font-family: 'Orbitron', sans-serif;
   font-weight: 600;
 }
 

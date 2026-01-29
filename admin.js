@@ -353,27 +353,6 @@ window.processarTransacao = async function(userId, transacaoId, acao) {
 // CONFIGURAÇÕES DE PAGAMENTO
 // ==============================
 
-window.salvarMercadoPago = async function() {
-  const dados = {
-    mercadopago: {
-    email: document.getElementById("mp-email").value,
-    token: document.getElementById("mp-token").value,
-    pix: document.getElementById("mp-pix").value
-    }
-  };
-  await salvarConfiguracaoNuvem(dados);
-};
-
-window.salvarPagBank = async function() {
-  const dados = {
-    pagbank: {
-    email: document.getElementById("pagbank-email").value.trim(),
-    token: document.getElementById("pagbank-token").value.trim()
-    }
-  };
-  await salvarConfiguracaoNuvem(dados);
-};
-
 window.salvarStripe = async function() {
   const dados = {
     stripe: {
@@ -414,19 +393,6 @@ async function carregarConfiguracoesPagamento() {
     if (docSnap.exists()) {
       const config = docSnap.data();
       
-      if (config.mercadopago) {
-        document.getElementById("mp-email").value = config.mercadopago.email || "";
-        document.getElementById("mp-token").value = config.mercadopago.token || "";
-        document.getElementById("mp-pix").value = config.mercadopago.pix || "";
-      }
-      
-      if (config.pagbank) {
-        const emailInput = document.getElementById("pagbank-email");
-        const tokenInput = document.getElementById("pagbank-token");
-        if (emailInput) emailInput.value = config.pagbank.email || "";
-        if (tokenInput) tokenInput.value = config.pagbank.token || "";
-      }
-
       if (config.stripe) {
         document.getElementById("stripe-pub").value = config.stripe.pub || "";
         document.getElementById("stripe-secret").value = config.stripe.secret || "";
@@ -442,8 +408,6 @@ async function carregarConfiguracoesPagamento() {
       const lista = document.getElementById("contas-ativas");
       if (lista) {
         lista.innerHTML = "";
-        if (config.mercadopago) lista.innerHTML += `<div class="conta-card"><strong>Mercado Pago</strong><p>${config.mercadopago.email}</p></div>`;
-        if (config.pagbank) lista.innerHTML += `<div class="conta-card"><strong>PagBank</strong><p>${config.pagbank.email}</p></div>`;
         if (config.stripe) lista.innerHTML += `<div class="conta-card"><strong>Stripe</strong><p>${config.stripe.account}</p></div>`;
         if (config.pix) lista.innerHTML += `<div class="conta-card"><strong>PIX</strong><p>${config.pix.chave}</p></div>`;
         
