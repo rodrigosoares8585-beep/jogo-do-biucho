@@ -946,13 +946,8 @@ async function buscarResultadoLoteriaSonho() {
     'https://bancasdobicho.com.br/resultados-jogo-do-bicho-pt-sp'
   ];
 
-  // Configuração de proxies para contornar bloqueios (CORS)
+  // Configuração de proxies (Mantida a rotação que funciona bem)
   const proxies = [
-    {
-      // Corsproxy.io (Geralmente o mais rápido e compatível)
-      getUrl: (url) => `https://corsproxy.io/?${encodeURIComponent(url + '?t=' + Date.now())}`,
-      extract: async (res) => await res.text()
-    },
     {
       // CodeTabs (Backup robusto para HTML)
       getUrl: (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
@@ -970,20 +965,16 @@ async function buscarResultadoLoteriaSonho() {
     }
   ];
 
-  // Limpa o cache de bancas antes de começar uma nova busca completa
-  // resultadosPorBanca = {};
+  // NÃO limpamos resultadosPorBanca = {} para evitar que os cards pisquem.
+  // Os dados serão apenas atualizados/sobrescritos.
 
   // Tenta encontrar o resultado principal o mais rápido possível
   for (let i = 0; i < fontes.length; i++) {
     const url = fontes[i];
-    // Processa a fonte atual
     const resultado = await processarFonte(url, proxies);
     
     if (resultado) {
-      // SUCESSO! Retorna este resultado imediatamente para a tela principal
-      
-      // Mas antes, dispara a busca nas outras fontes em BACKGROUND (sem await)
-      // para preencher a grade de bancas aos poucos
+      // Dispara busca nas outras fontes em background para preencher a grade
       const fontesRestantes = fontes.slice(i + 1);
       buscarBancasRestantes(fontesRestantes, proxies);
       
@@ -996,47 +987,20 @@ async function buscarResultadoLoteriaSonho() {
 
 // Função que roda em segundo plano para preencher a grade
 async function buscarBancasRestantes(fontes, proxies) {
-  console.log("🔄 Buscando outras bancas em segundo plano...");
+  // console.log("🔄 Buscando outras bancas em segundo plano...");
   for (const url of fontes) {
-    // Processa e se achar algo novo, atualiza a grade visualmente
     const achou = await processarFonte(url, proxies);
     if (achou) {
       renderizarGradeResultados();
     }
   }
-  console.log("✅ Busca de background finalizada.");
+  // console.log("✅ Busca de background finalizada.");
 }
 
-// Função auxiliar para garantir o nome correto da banca baseado no link
-function obterNomeBancaPelaUrl(url) {
-  if (url.includes("abaese")) return "Abaese";
-  if (url.includes("aval")) return "Aval";
-  if (url.includes("bandeirantes")) return "Bandeirantes";
-  if (url.includes("bicho-rs")) return "Bicho RS";
-  if (url.includes("caminho")) return "Caminho da Sorte";
-  if (url.includes("deu-no-poste")) return "Deu no Poste";
-  if (url.includes("alianca")) return "Aliança";
-  if (url.includes("federal")) return "Federal";
-  if (url.includes("look")) return "Look";
-  if (url.includes("lotece")) return "Lotece";
-  if (url.includes("lotep")) return "Lotep";
-  if (url.includes("popular")) return "Popular";
-  if (url.includes("tradicional")) return "Tradicional";
-  if (url.includes("lbr")) return "LBR";
-  if (url.includes("maluca")) return "Maluca";
-  if (url.includes("minas")) return "Minas";
-  if (url.includes("nordeste")) return "Nordeste";
-  if (url.includes("paratodos-bahia")) return "Paratodos Bahia";
-  if (url.includes("paratodos-pb")) return "Paratodos PB";
-  if (url.includes("pt-rio")) return "PT Rio";
-  if (url.includes("pt-sp")) return "PT SP";
-  return "Outra Banca";
-}
-
-// Função auxiliar que processa UMA única URL
+// ============================================================
+// NOVA LÓGICA DE EXTRAÇÃO (REFATORADA)
+// ============================================================
 async function processarFonte(url, proxies) {
-  const anoAtual = new Date().getFullYear();
-
   for (const proxy of proxies) {
       try {
         const controller = new AbortController();
@@ -1050,361 +1014,121 @@ async function processarFonte(url, proxies) {
         const htmlContent = await proxy.extract(response);
         if (!htmlContent) continue;
 
-        // Verificar se foi bloqueado por Cloudflare/Captcha
         if (htmlContent.includes("Attention Required! | Cloudflare") || htmlContent.includes("Just a moment...")) {
-          console.warn(`Bloqueado por Cloudflare em ${url}`);
           continue;
         }
 
-        // ============================================================
-        // PARSER AVANÇADO PARA MÚLTIPLAS BANCAS (PERNAMBUCO/OUTRAS)
-        // ============================================================
-        // Tenta identificar seções de bancas específicas (ex: Aval, Caminho da Sorte)
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(htmlContent, 'text/html');
+        // Analisa o HTML e extrai todas as bancas encontradas
+        const dadosExtraidos = analisarHTML(htmlContent, url);
         
-        // Tenta identificar pelo HTML, se falhar, usa o nome do link
-        let bancaDestaUrl = obterNomeBancaPelaUrl(url);
-
-        // 1. Tenta extrair o horário do sorteio (MOVIDO PARA CIMA)
-        let horarioDetectado = "";
-        const regexHorario = /(\d{1,2}:\d{2})|(\d{1,2}\s*[hH])/;
-        
-        // Procura em títulos/destaques
-        const elementosTexto = doc.querySelectorAll('h1, h2, h3, strong, b, .titulo, .data');
-        for (let el of elementosTexto) {
-          const texto = el.textContent || el.innerText || "";
-          const match = texto.match(regexHorario);
-          if (match) {
-            horarioDetectado = match[0].replace(/\s/g, '').toLowerCase();
-            break;
-          }
-        }
-        // Fallback: Procura no corpo
-        if (!horarioDetectado) {
-           const bodyText = doc.body.textContent || doc.body.innerText || "";
-           const matchBody = bodyText.match(regexHorario);
-           if (matchBody) horarioDetectado = matchBody[0].replace(/\s/g, '').toLowerCase();
-        }
-
-        // ============================
-        // 1. DETECÇÃO DE BANCAS ESPECÍFICAS (BUSCA POR TÍTULOS)
-        // ============================
-        // Movemos para o topo para garantir que todas as bancas sejam lidas antes de qualquer retorno
-        const titulos = doc.querySelectorAll('h1, h2, h3, h4, h5, h6, strong, b, td, th, .titulo, .banca, span, div, p');
-
-        for (let titulo of titulos) {
-          const textoTitulo = (titulo.textContent || "").trim();
-          
-          // Verifica se o título corresponde a uma das nossas bancas
-          const bancaEncontrada = BANCAS.find(b => textoTitulo.toLowerCase().includes(b.toLowerCase()));
-          
-          if (bancaEncontrada) {
-            // Evita falsos positivos em textos muito longos
-            if (textoTitulo.length > 50) continue;
-
-            // Encontrou um título de banca. Tenta achar a tabela/lista IMEDIATAMENTE após este título
-            let containerBusca = titulo.nextElementSibling;
-            let numerosBanca = [];
-            let tentativas = 0;
-            
-            // Tenta extrair números dos elementos seguintes
-            while (containerBusca && tentativas < 30) {
-              const textoContainer = containerBusca.innerText || containerBusca.textContent || "";
-              
-              // Pula containers muito pequenos
-              if (textoContainer.length < 2) { containerBusca = containerBusca.nextElementSibling; tentativas++; continue; }
-
-              // Procura sequências de 4 dígitos
-              const matches = textoContainer.match(/(?:\b\d{4}\b|\b\d{1}\.\d{3}\b)/g);
-              if (matches) {
-                const validos = matches.map(n => parseInt(n.replace(/\./g, ''))).filter(n => n < 2023 || n > 2026);
-                for (const num of validos) {
-                   if (numerosBanca.length < 5) numerosBanca.push(num);
-                }
-                
-                if (numerosBanca.length >= 3) { // Aceita parciais (min 3)
-                  resultadosPorBanca[bancaEncontrada] = { valores: numerosBanca, horario: "Hoje" };
-                }
-              }
-              // Se já achou 5, pode parar de procurar para ESTA banca
-              if (numerosBanca.length >= 5) break;
-
-              containerBusca = containerBusca.nextElementSibling;
-              tentativas++;
-            }
-          }
-        }
-
-        // ============================
-        // 2. EXTRAÇÃO PRIORITÁRIA GENÉRICA (TABELAS)
-        // ============================
-        const premiosPrioritarios = Array(5).fill(undefined);
-
-        // PRIORIDADE TOTAL: TABELAS
-        const tabelasPrioridade = doc.querySelectorAll('table');
-
-        for (let tabela of tabelasPrioridade) {
-          const linhas = tabela.querySelectorAll('tbody tr');
-          const linhasProcessar = linhas.length > 0 ? linhas : tabela.querySelectorAll('tr');
-
-          for (let tr of linhasProcessar) {
-            const tds = tr.querySelectorAll('td');
-            if (tds.length < 2) continue;
-
-            let pos = null;
-            let val = null;
-
-            for (let td of tds) {
-              const txt = (td.textContent || "").trim();
-
-              // Detecta posição (1º, 2º, 3º, 4º, 5º)
-              const matchPos = txt.match(/^(\d{1})[ºo°ª]?$/);
-              if (matchPos) {
-                const p = parseInt(matchPos[1]);
-                if (p >= 1 && p <= 5) pos = p;
-              }
-
-              // Detecta milhar
-              const limpo = txt.replace(/\D/g, '');
-              if (limpo.length === 4) {
-                const num = parseInt(limpo);
-                if (num < anoAtual - 1 || num > anoAtual + 1) {
-                  val = num;
-                }
-              }
-            }
-
-            if (pos && val && premiosPrioritarios[pos - 1] === undefined) {
-              premiosPrioritarios[pos - 1] = val;
-            }
-          }
-        }
-
-        // SE ACHOU OS 5, FINALIZA
-        if (premiosPrioritarios.every(n => n !== undefined)) {
-          resultadosPorBanca[bancaDestaUrl] = {
-            valores: premiosPrioritarios,
-            horario: horarioDetectado || "Hoje"
-          };
-
-          return {
-            valores: premiosPrioritarios,
-            origem: 'real',
-            horario: horarioDetectado,
-            fonte: url,
-            bancaDetectada: bancaDestaUrl
-          };
-        }
-
-        const premiosEncontrados = [];
-
-        // ESTRATÉGIA 1: Busca por classes específicas (.premio e .numeros)
-        // Baseado na estrutura: <li> <div class="premio">1° PRÊMIO</div> <div class="numeros">5354</div> </li>
-        const itensComClasses = doc.querySelectorAll('li, div.resultado-item, tr');
-        for (let item of itensComClasses) {
-          const elPremio = item.querySelector('.premio, .posicao, .position');
-          const elNumero = item.querySelector('.numeros, .resultado, .number');
-          
-          if (elPremio && elNumero) {
-            const txtPremio = (elPremio.textContent || elPremio.innerText || "").trim();
-            const txtNumero = (elNumero.textContent || elNumero.innerText || "").trim();
-            
-            const matchPos = txtPremio.match(/(\d{1,2})/);
-            // Remove pontos e traços antes de verificar (ex: 5.354 -> 5354)
-            const numeroLimpo = txtNumero.replace(/\D/g, '');
-            
-            if (matchPos && numeroLimpo.length === 4) {
-              const pos = parseInt(matchPos[1]);
-              const num = parseInt(numeroLimpo);
-              // Só preenche se estiver vazio (prioriza o primeiro encontrado no HTML, que geralmente é o mais recente)
-              if (pos >= 1 && pos <= 10 && premiosEncontrados[pos - 1] === undefined) {
-                premiosEncontrados[pos - 1] = num;
-              }
-            }
-          }
-        }
-
-        // ESTRATÉGIA 1.5: Tabela Estruturada (Novo - Para bancas que usam tables)
-        // Procura tabelas onde uma célula é índice (1-10) e outra é valor (4 dígitos)
-        const tabelas = doc.querySelectorAll('table');
-        for (let tabela of tabelas) {
-          const linhasTabela = tabela.querySelectorAll('tr');
-          
-          for (let tr of linhasTabela) {
-            const tds = tr.querySelectorAll('td, th');
-            if (tds.length >= 2) {
-              let pos = -1;
-              let val = -1;
-
-              for (let td of tds) {
-                const txt = (td.textContent || "").trim();
-                
-                // Verifica se é posição (1º, 1, 1°, etc)
-                const matchPos = txt.match(/^(\d{1,2})[ºo°ª]?$/);
-                if (matchPos) {
-                  const p = parseInt(matchPos[1]);
-                  if (p >= 1 && p <= 10) pos = p;
-                }
-
-                // Verifica se é valor (4 dígitos ou 1.234)
-                // Remove pontos para verificar
-                const txtLimpo = txt.replace(/\./g, '');
-                if (/^\d{4}$/.test(txtLimpo)) {
-                   const v = parseInt(txtLimpo);
-                   // Filtra anos
-                   if (v < anoAtual - 1 || v > anoAtual + 1) val = v;
-                }
-              }
-
-              // Se achou par (Posição + Valor) na mesma linha
-              if (pos !== -1 && val !== -1) {
-                if (premiosEncontrados[pos - 1] === undefined) {
-                  premiosEncontrados[pos - 1] = val;
-                }
-              }
-            }
-          }
-        }
-
-        // ESTRATÉGIA 3: Busca por elementos separados (Posição em um, Valor no próximo)
-        // Ex: <div>1º</div> <div>1234</div>
-        if (premiosEncontrados.filter(n => n !== undefined).length < 5) {
-           const elementos = doc.querySelectorAll('div, p, span, td, li, b, strong, h1, h2, h3, h4, h5, h6');
-           for (let i = 0; i < elementos.length - 1; i++) {
-              const txtAtual = (elementos[i].textContent || "").trim();
-              // Verifica se é indicador de posição (ex: "1º", "1", "1° Prêmio")
-              const matchPos = txtAtual.match(/^(\d{1,2})[ºo°ª]?\s*(?:Prêmio|Premio)?$/i);
-              
-              if (matchPos) {
-                 const pos = parseInt(matchPos[1]);
-                 if (pos >= 1 && pos <= 10) {
-                    // Olha os próximos elementos (até 3 à frente) para pular labels como "Milhar", "Prêmio"
-                    for (let k = 1; k <= 3; k++) {
-                       if (i + k >= elementos.length) break;
-                       const elProx = elementos[i+k];
-                       const txtProx = (elProx.textContent || "").trim();
-                       
-                       // Se for label, continua procurando
-                       if (/^(Milhar|Prêmio|Premio|Número|Numero|Pontos)$/i.test(txtProx)) continue;
-
-                       const limpo = txtProx.replace(/\D/g, '');
-                       if (limpo.length === 4) {
-                          const num = parseInt(limpo);
-                          if (num < anoAtual - 1 || num > anoAtual + 1) {
-                             if (premiosEncontrados[pos - 1] === undefined) {
-                                premiosEncontrados[pos - 1] = num;
-                             }
-                             // Avança o índice principal para evitar reprocessar esses elementos
-                             i += k; 
-                             break;
-                          }
-                       }
-                       // Se encontrou texto que não é label nem número, para de procurar para esta posição
-                       else if (txtProx.length > 0) break;
-                    }
-                 }
-              }
-           }
-        }
-
-        // SE A ESTRATÉGIA 1 (HTML ESPECÍFICO) FUNCIONOU, RETORNA IMEDIATAMENTE
-        // Isso garante que pegamos exatamente o resultado da estrutura correta e ignoramos o resto
-        const validosEstrategia1 = premiosEncontrados.filter(n => n !== undefined);
-        if (validosEstrategia1.length >= 5) {
-          // Salva na grade antes de retornar
-          resultadosPorBanca[bancaDestaUrl] = { valores: validosEstrategia1, horario: horarioDetectado || "Hoje" };
-          if (bancaDestaUrl) {
-             return { valores: resultadosPorBanca[bancaDestaUrl].valores, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: bancaDestaUrl };
-          }
-          return { valores: validosEstrategia1, origem: 'real', horario: horarioDetectado, fonte: url };
-        }
-
-        // ESTRATÉGIA 2: Busca sequencial de prêmios (1º ao 10º)
-        // Procura padrões como "1º ... 1234", "2º ... 5678"
-        const linhas = doc.querySelectorAll('tr, li, .resultado-item, p, div, td');
-        
-        for (let linha of linhas) {
-          const texto = (linha.textContent || linha.innerText || "").replace(/\s+/g, ' ').trim();
-          // Regex mais flexível para capturar posição (1-10) e o milhar (4 dígitos)
-          // Aceita "1º 1234", "1 1234", "1º Prêmio: 1234", "1• 1234", "1º 5.354", "1 : 1234"
-          // Melhorado para não pegar datas ou telefones parciais
-          const match = texto.match(/(?:^|\D)(\d{1,2})[ºo°ª]?\s*(?:Prêmio|Premio)?\s*[:.•-]?\s*(\d{1}\.\d{3}|\d{4})(?!\d)/i);
-          
-          if (match) {
-            const pos = parseInt(match[1]);
-            const rawNum = match[2].replace(/\D/g, ''); // Remove pontos
-            if (rawNum.length !== 4) continue;
-            const num = parseInt(rawNum);
-            
-            // Valida se não é ano e se a posição é válida (1 a 10)
-            if (num >= anoAtual - 1 && num <= anoAtual + 1) continue;
-            
-            if (pos >= 1 && pos <= 10) {
-              if (premiosEncontrados[pos - 1] === undefined) {
-                premiosEncontrados[pos - 1] = num; // Array index 0 é o 1º prêmio
-              }
-            }
-          }
-        }
-
-        // ESTRATÉGIA 2: Busca Global no texto (caso a estrutura HTML seja complexa)
-        // Isso garante que acharemos os números mesmo se o site mudar as tags HTML
-        if (premiosEncontrados.filter(n => n !== undefined).length < 5) {
-          const textoTotal = doc.body.textContent || doc.body.innerText || "";
-          const regexGlobal = /(?:^|\D)(\d{1,2})[ºo°ª]?\s*(?:Prêmio|Premio)?\s*[:.•-]?\s*(\d{1}\.\d{3}|\d{4})(?!\d)/gi;
-          let m;
-          while ((m = regexGlobal.exec(textoTotal)) !== null) {
-            const pos = parseInt(m[1]);
-            const rawNum = m[2].replace(/\D/g, '');
-            if (rawNum.length !== 4) continue;
-            const num = parseInt(rawNum);
-            if (num >= anoAtual - 1 && num <= anoAtual + 1) continue;
-            if (pos >= 1 && pos <= 10 && premiosEncontrados[pos - 1] === undefined) {
-              premiosEncontrados[pos - 1] = num;
-            }
-          }
-        }
-
-        // Limpa slots vazios do array
-        const premiosFinais = premiosEncontrados.filter(n => n !== undefined);
-
-        if (premiosFinais.length >= 5) {
-          // Salva na grade antes de retornar
-          resultadosPorBanca[bancaDestaUrl] = { valores: premiosFinais, horario: horarioDetectado || "Hoje" };
-          if (bancaDestaUrl) {
-             return { valores: resultadosPorBanca[bancaDestaUrl].valores, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: bancaDestaUrl };
-          }
-          return { valores: premiosFinais, origem: 'real', horario: horarioDetectado, fonte: url };
-        }
-
-        // FALLBACK: Se não achou com posições, pega os primeiros 10 números de 4 dígitos encontrados
-        const textoPagina = doc.body.textContent || doc.body.innerText || "";
-        const todosMilhares = textoPagina.match(/(?:\b\d{4}\b|\b\d{1}\.\d{3}\b)/g);
-        if (todosMilhares) {
-          const unicos = [];
-          for (let numStr of todosMilhares) {
-            const num = parseInt(numStr.replace(/\./g, ''));
-            if (num < anoAtual - 1 || num > anoAtual + 1) {
-              if (!unicos.includes(num)) unicos.push(num);
-            }
-            if (unicos.length >= 10) break;
-          }
-          if (unicos.length >= 5) {
-             // Salva na grade antes de retornar
-             resultadosPorBanca[bancaDestaUrl] = { valores: unicos, horario: horarioDetectado || "Hoje" };
-             if (bancaDestaUrl) {
-                return { valores: resultadosPorBanca[bancaDestaUrl].valores, origem: 'real', horario: horarioDetectado, fonte: url, bancaDetectada: bancaDestaUrl };
-             }
-             return { valores: unicos, origem: 'real', horario: horarioDetectado, fonte: url };
-          }
-        }
+        // Se encontrou algo, retorna o primeiro resultado válido para o display principal
+        if (dadosExtraidos) return dadosExtraidos;
 
       } catch (e) {
         // console.warn(`Falha ao tentar ${url}:`, e); // Silencia erros individuais para não poluir
       }
     }
     return null; // Se falhar todos proxies desta URL
+}
+
+function analisarHTML(html, url) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const textoPagina = (doc.body.innerText || doc.body.textContent || "").split('\n');
+  
+  const anoAtual = new Date().getFullYear();
+  let bancaAtual = null;
+  let horarioAtual = "";
+  let numerosBuffer = [];
+  let resultadoPrincipal = null;
+
+  // Tenta identificar a banca principal pelo URL se não achar no texto
+  let bancaPadraoUrl = "Outra Banca";
+  if (url.includes("abaese")) bancaPadraoUrl = "Abaese";
+  else if (url.includes("aval")) bancaPadraoUrl = "Aval";
+  else if (url.includes("lotece")) bancaPadraoUrl = "Lotece";
+  else if (url.includes("federal")) bancaPadraoUrl = "Federal";
+  else if (url.includes("pt-rio")) bancaPadraoUrl = "PT Rio";
+  else if (url.includes("pt-sp")) bancaPadraoUrl = "PT SP";
+  else if (url.includes("look")) bancaPadraoUrl = "Look";
+  else if (url.includes("nacional")) bancaPadraoUrl = "Nacional";
+  else if (url.includes("bandeirantes")) bancaPadraoUrl = "Bandeirantes";
+  else if (url.includes("caminho")) bancaPadraoUrl = "Caminho da Sorte";
+
+  // Regex para horário (12:00, 14h30)
+  const regexHorario = /(\d{1,2}:\d{2})|(\d{1,2}\s*[hH])/;
+
+  // Itera linha por linha do texto da página
+  for (let i = 0; i < textoPagina.length; i++) {
+    const linha = textoPagina[i].trim();
+    if (linha.length < 2) continue;
+
+    // 1. Verifica se a linha é um Título de Banca
+    const bancaEncontrada = BANCAS.find(b => linha.toLowerCase().includes(b.toLowerCase()));
+    
+    if (bancaEncontrada && linha.length < 60) {
+      // Se já tínhamos uma banca sendo processada e ela tem números suficientes, salva
+      if (bancaAtual && numerosBuffer.length >= 5) {
+        resultadosPorBanca[bancaAtual] = { valores: [...numerosBuffer], horario: horarioAtual || "Hoje" };
+        if (!resultadoPrincipal) resultadoPrincipal = { valores: [...numerosBuffer], bancaDetectada: bancaAtual, horario: horarioAtual };
+      }
+      
+      // Inicia nova banca
+      bancaAtual = bancaEncontrada;
+      numerosBuffer = [];
+      
+      // Tenta achar horário na mesma linha
+      const matchH = linha.match(regexHorario);
+      horarioAtual = matchH ? matchH[0].replace(/\s/g, '') : "";
+      continue;
+    }
+
+    // 2. Se não achou horário no título, tenta na linha seguinte
+    if (bancaAtual && !horarioAtual) {
+      const matchH = linha.match(regexHorario);
+      if (matchH) horarioAtual = matchH[0].replace(/\s/g, '');
+    }
+
+    // 3. Procura números de milhar (1234 ou 1.234)
+    // Regex: Pega 4 digitos sozinhos OU 1.3 digitos
+    const matches = linha.match(/(?<!\d)(?:\d{4}|\d{1}\.\d{3})(?!\d)/g);
+    
+    if (matches) {
+      for (let m of matches) {
+        const num = parseInt(m.replace(/\./g, ''));
+        // Filtra anos e telefones
+        if (num >= 2023 && num <= 2026) continue;
+        
+        // Adiciona ao buffer da banca atual
+        if (bancaAtual) {
+          if (numerosBuffer.length < 10) numerosBuffer.push(num); // Pega até 10 prêmios
+        } else {
+          // Se não tem banca definida, usa a padrão do URL
+          bancaAtual = bancaPadraoUrl;
+          numerosBuffer.push(num);
+        }
+      }
+    }
+  }
+
+  // Salva o último buffer processado
+  if (bancaAtual && numerosBuffer.length >= 5) {
+    resultadosPorBanca[bancaAtual] = { valores: [...numerosBuffer], horario: horarioAtual || "Hoje" };
+    if (!resultadoPrincipal) resultadoPrincipal = { valores: [...numerosBuffer], bancaDetectada: bancaAtual, horario: horarioAtual };
+  }
+
+  // Retorno para a função principal
+  if (resultadoPrincipal) {
+    return {
+      valores: resultadoPrincipal.valores,
+      origem: 'real',
+      horario: resultadoPrincipal.horario,
+      fonte: url,
+      bancaDetectada: resultadoPrincipal.bancaDetectada
+    };
+  }
+  
+  return null;
 }
 
 // ============================
