@@ -670,7 +670,7 @@ async function realizarSorteio() {
   // Pausa o timer e mostra status de extração
   clearInterval(intervaloTimer);
   timerDisplay.innerText = "🔄 Sincronizando Resultados...";
-  timerDisplay.style.color = "#00ffd5";
+  timerDisplay.style.color = "#fbbf24";
   
   let resultado;
 
@@ -710,9 +710,9 @@ async function realizarSorteio() {
   if (badge) {
     badge.innerText = `● ${nomeFonte}${horarioTexto.toUpperCase()}`;
     badge.title = `Fonte: ${resultado.fonte}`; // Mostra o link completo ao passar o mouse
-    badge.style.backgroundColor = "rgba(0, 255, 136, 0.2)";
-    badge.style.color = "#00ff88";
-    badge.style.border = "1px solid #00ff88";
+    badge.style.backgroundColor = "rgba(251, 191, 36, 0.1)";
+    badge.style.color = "#fbbf24";
+    badge.style.border = "1px solid #fbbf24";
   }
 
   // VERIFICAÇÃO DE MUDANÇA (Só atualiza se for um novo sorteio)
@@ -991,7 +991,7 @@ function renderizarGradeResultados() {
     return;
   }
 
-  const btnStyle = "background:rgba(0, 255, 213, 0.1); border:1px solid #00ffd5; color:#00ffd5; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:11px; transition:all 0.2s; display:flex; align-items:center; gap:5px;";
+  const btnStyle = "background:rgba(251, 191, 36, 0.1); border:1px solid #fbbf24; color:#fbbf24; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:11px; transition:all 0.2s; display:flex; align-items:center; gap:5px;";
 
   // 1. HEADER (Cria ou Atualiza)
   let header = wrapper.querySelector(".grade-header");
@@ -1006,7 +1006,7 @@ function renderizarGradeResultados() {
       <h3 style="margin:0; color:#94a3b8; font-size:14px; text-transform:uppercase; letter-spacing:1px;">
         📊 Resultados por Banca (${bancas.length})
       </h3>
-      <button onclick="exportarResultadosCSV()" style="${btnStyle}" onmouseover="this.style.background='#00ffd5';this.style.color='#0f172a'" onmouseout="this.style.background='rgba(0, 255, 213, 0.1)';this.style.color='#00ffd5'">
+      <button onclick="exportarResultadosCSV()" style="${btnStyle}" onmouseover="this.style.background='#fbbf24';this.style.color='#0f172a'" onmouseout="this.style.background='rgba(251, 191, 36, 0.1)';this.style.color='#fbbf24'">
         📥 Baixar CSV
       </button>
   `;
@@ -1373,7 +1373,7 @@ function renderizarHistorico() {
         return `
           <div style="background: rgba(15, 23, 42, 0.4); padding: 10px 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05); transition: transform 0.2s;">
             <div style="text-align: left;">
-              <div style="font-size: 10px; color: #00ffd5; font-weight: bold; margin-bottom: 3px; background: rgba(0, 255, 213, 0.1); padding: 2px 6px; border-radius: 4px; display: inline-block;">
+              <div style="font-size: 10px; color: #fbbf24; font-weight: bold; margin-bottom: 3px; background: rgba(251, 191, 36, 0.1); padding: 2px 6px; border-radius: 4px; display: inline-block;">
                 ${fonteNome} ${item.horario || ""}
               </div>
               <div style="font-size: 10px; opacity: 0.5; margin-top: 4px;">
