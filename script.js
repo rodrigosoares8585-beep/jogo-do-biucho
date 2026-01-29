@@ -145,7 +145,13 @@ function aoSelecionarBanca() {
   horarios.forEach(h => {
     const option = document.createElement("option");
     option.value = h;
-    option.textContent = h;
+    
+    if (!verificarHorarioLimite(h)) {
+      option.textContent = `${h} (Encerrado)`;
+      option.disabled = true;
+    } else {
+      option.textContent = h;
+    }
     selectHorario.appendChild(option);
   });
 
@@ -218,6 +224,18 @@ if (container) {
 // FUNÇÕES DE APOSTA
 // ============================
 
+function verificarHorarioLimite(horario) {
+  const agora = new Date();
+  const [h, m] = horario.split(':').map(Number);
+  const dataSorteio = new Date();
+  dataSorteio.setHours(h, m, 0, 0);
+
+  // Limite é 15 minutos antes (15 * 60 * 1000 ms)
+  const limite = new Date(dataSorteio.getTime() - 15 * 60000);
+
+  return agora <= limite;
+}
+
 function fazerAposta(indexBicho) {
   const usuario = obterUsuario();
   if (!usuario) {
@@ -232,6 +250,11 @@ function fazerAposta(indexBicho) {
   if (!banca || !horario) {
     alert("⚠️ Por favor, selecione a BANCA e o HORÁRIO no topo da página antes de apostar!");
     document.querySelector(".config-aposta-container").scrollIntoView({behavior: "smooth"});
+    return;
+  }
+
+  if (!verificarHorarioLimite(horario)) {
+    alert(`⛔ Apostas encerradas para ${horario}!\nAs apostas são aceitas até 15 minutos antes do sorteio.`);
     return;
   }
 
@@ -315,6 +338,11 @@ function fazerApostaNumerica() {
   if (!banca || !horario) {
     alert("⚠️ Por favor, selecione a BANCA e o HORÁRIO no topo da página antes de apostar!");
     document.querySelector(".config-aposta-container").scrollIntoView({behavior: "smooth"});
+    return;
+  }
+
+  if (!verificarHorarioLimite(horario)) {
+    alert(`⛔ Apostas encerradas para ${horario}!\nAs apostas são aceitas até 15 minutos antes do sorteio.`);
     return;
   }
 
