@@ -1089,9 +1089,9 @@ async function processarFonte(url, proxies) {
               if (textoContainer.length < 2) { containerBusca = containerBusca.nextElementSibling; tentativas++; continue; }
 
               // Procura sequências de 4 dígitos
-              const matches = textoContainer.match(/\b\d{4}\b/g);
+              const matches = textoContainer.match(/(?:\b\d{4}\b|\b\d{1}\.\d{3}\b)/g);
               if (matches) {
-                const validos = matches.map(n => parseInt(n)).filter(n => n < 2023 || n > 2026);
+                const validos = matches.map(n => parseInt(n.replace(/\./g, ''))).filter(n => n < 2023 || n > 2026);
                 for (const num of validos) {
                    if (numerosBanca.length < 5) numerosBanca.push(num);
                 }
@@ -1342,7 +1342,7 @@ async function processarFonte(url, proxies) {
         // Limpa slots vazios do array
         const premiosFinais = premiosEncontrados.filter(n => n !== undefined);
 
-        if (premiosFinais.length > 0) {
+        if (premiosFinais.length >= 5) {
           // Salva na grade antes de retornar
           resultadosPorBanca[bancaDestaUrl] = { valores: premiosFinais, horario: horarioDetectado || "Hoje" };
           if (bancaDestaUrl) {
@@ -1353,17 +1353,17 @@ async function processarFonte(url, proxies) {
 
         // FALLBACK: Se não achou com posições, pega os primeiros 10 números de 4 dígitos encontrados
         const textoPagina = doc.body.textContent || doc.body.innerText || "";
-        const todosMilhares = textoPagina.match(/\b\d{4}\b/g);
+        const todosMilhares = textoPagina.match(/(?:\b\d{4}\b|\b\d{1}\.\d{3}\b)/g);
         if (todosMilhares) {
           const unicos = [];
           for (let numStr of todosMilhares) {
-            const num = parseInt(numStr);
+            const num = parseInt(numStr.replace(/\./g, ''));
             if (num < anoAtual - 1 || num > anoAtual + 1) {
               if (!unicos.includes(num)) unicos.push(num);
             }
             if (unicos.length >= 10) break;
           }
-          if (unicos.length > 0) {
+          if (unicos.length >= 5) {
              // Salva na grade antes de retornar
              resultadosPorBanca[bancaDestaUrl] = { valores: unicos, horario: horarioDetectado || "Hoje" };
              if (bancaDestaUrl) {
