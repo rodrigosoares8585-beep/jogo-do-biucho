@@ -944,7 +944,7 @@ async function buscarResultadoLoteriaSonho() {
   ];
 
   // Limpa o cache de bancas antes de começar uma nova busca completa
-  resultadosPorBanca = {};
+  // resultadosPorBanca = {};
 
   // Tenta encontrar o resultado principal o mais rápido possível
   for (let i = 0; i < fontes.length; i++) {
