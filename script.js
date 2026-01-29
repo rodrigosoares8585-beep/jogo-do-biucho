@@ -61,10 +61,11 @@ const BANCAS = [
   "Abaese", "Itabaiana", "Aval", "Bandeirantes", "Bicho RS", "Caminho da Sorte", 
   "Deu no Poste", "Aliança", "Federal", "Look", "Lotece", "Lotep", "Popular", 
   "Tradicional", "LBR", "Maluca", "Nordeste", 
-  "PT-Rio", "PT Rio", "PT-SP", "PT SP", 
+  "PT-Rio", "PT Rio", "PT-SP", "PT SP", "Nacional", "Goiás", "Bahia", "Ceará", "Brasília",
   "CL", "Preferida", "Salvation", "Corujinha", "Amnésia", "Ouro", "União", 
   "Adesp", "Global", "Local", "Águia", "Fênix", "Ponte", "Sorte", "Confiança",
   "Redenção", "Vila", "Capital", "Cotepe", "Potiguar", "Jangadeiro", "Seninha",
+  "Alvorada", "Loteria dos Sonhos", "Pernambuco",
   "PTM", "PT", "PTV", "PTN", "COR"
 ];
 const HORARIOS = ["12:45", "15:30", "18:30", "11:00", "14:00", "16:00", "18:00", "21:00", "Federal (Qua/Sab)"];
