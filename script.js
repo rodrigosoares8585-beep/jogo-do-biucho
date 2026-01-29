@@ -1005,47 +1005,69 @@ function analisarHTML(html, url) {
     const doc = parser.parseFromString(html, 'text/html');
     let resultadoPrincipal = null;
 
-    // Nova estratégia focada em https://bancasdobicho.com.br/bancas
-    // O seletor busca os contêineres de cada resultado individual na página.
-    const blocosResultados = doc.querySelectorAll('.w-full.rounded.border.p-4.mb-4');
+    // ESTRATÉGIA GENÉRICA E ROBUSTA (Funciona mesmo se o site mudar o CSS)
+    // Busca por elementos de cabeçalho (H2, H3, etc) que contenham horários (HH:MM)
+    const headers = doc.querySelectorAll('h2, h3, h4, div.font-bold'); 
 
-    if (blocosResultados.length === 0) {
-        console.warn("[Parser] Nenhum bloco de resultado encontrado. A estrutura do site pode ter mudado.");
-        return null;
-    }
+    for (const header of headers) {
+        const textoHeader = (header.textContent || "").trim();
+        
+        // Regex para encontrar horário (Ex: 14:30, 14h30)
+        const matchHorario = /(\d{2}:\d{2})|(\d{2}h\d{2})/.exec(textoHeader);
+        
+        if (matchHorario) {
+            const horario = matchHorario[0];
+            
+            // Tenta extrair o nome da banca (tudo antes do horário)
+            let bancaNome = textoHeader.split(horario)[0]
+                .replace(/[-–]/g, '') // Remove traços
+                .replace(/\d{2}\/\d{2}\/\d{4}/, '') // Remove data se houver antes
+                .trim();
+            
+            if (bancaNome.length < 2) bancaNome = "Banca " + horario;
 
-    for (const bloco of blocosResultados) {
-        const tituloEl = bloco.querySelector('h2');
-        if (!tituloEl) continue;
+            // Busca os números no container pai deste cabeçalho
+            // (Geralmente o card envolve o título e os números)
+            let container = header.parentElement;
+            
+            // Se o pai for muito genérico (ex: body ou div vazia), tenta subir mais um nível ou pegar irmãos
+            if (!container || container.innerText.length < 50) {
+                 // Tenta pegar o próximo elemento irmão se o título estiver fora do card de números
+                 if (header.nextElementSibling) container = header.nextElementSibling;
+            }
 
-        const tituloTexto = tituloEl.textContent.trim();
-        // Regex para capturar (NOME DA BANCA) (HORARIO) - (DATA)
-        const matchTitulo = /^(.*?)\s*(\d{2}:\d{2})\s*-\s*\d{2}\/\d{2}\/\d{4}/.exec(tituloTexto);
-        if (!matchTitulo) continue;
+            if (container) {
+                const textoContainer = container.innerText || container.textContent || "";
+                
+                // Busca sequências de 4 dígitos (milhares)
+                // Aceita 1234 ou 1.234
+                const matches = textoContainer.match(/(?<!\d)(?:\d{4}|\d{1}\.\d{3})(?!\d)/g);
+                
+                if (matches) {
+                    const numeros = matches
+                        .map(n => parseInt(n.replace(/\./g, '')))
+                        .filter(n => n < 2023 || n > 2026); // Filtra anos
+                    
+                    // Remove duplicatas
+                    const unicos = [...new Set(numeros)];
 
-        const bancaNome = matchTitulo[1].trim();
-        const horario = matchTitulo[2].trim();
+                    if (unicos.length >= 5) {
+                        // Achamos uma banca válida!
+                        resultadosPorBanca[bancaNome] = {
+                            valores: unicos.slice(0, 10),
+                            horario: horario
+                        };
 
-        // Extrai os números dos prêmios de dentro do bloco
-        const numerosEls = bloco.querySelectorAll('.font-bold.text-lg');
-        const numeros = Array.from(numerosEls)
-            .map(el => parseInt(el.textContent.replace(/\D/g, '')))
-            .filter(n => !isNaN(n) && (n < 2023 || n > 2026)); // Filtra anos
-
-        if (bancaNome && numeros.length >= 5) {
-            // Salva no objeto global para a grade de bancas
-            resultadosPorBanca[bancaNome] = {
-                valores: numeros.slice(0, 10),
-                horario: horario
-            };
-
-            // Define o primeiro resultado válido como o principal a ser exibido na tela
-            if (!resultadoPrincipal) {
-                resultadoPrincipal = {
-                    valores: numeros.slice(0, 10),
-                    bancaDetectada: bancaNome,
-                    horario: horario
-                };
+                        // Define o primeiro encontrado como principal (para o destaque)
+                        if (!resultadoPrincipal) {
+                            resultadoPrincipal = {
+                                valores: unicos.slice(0, 10),
+                                bancaDetectada: bancaNome,
+                                horario: horario
+                            };
+                        }
+                    }
+                }
             }
         }
     }
