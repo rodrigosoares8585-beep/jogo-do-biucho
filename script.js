@@ -61,10 +61,11 @@ const BANCAS = [
   "Abaese", "Itabaiana", "Aval", "Bandeirantes", "Bicho RS", "Caminho da Sorte", 
   "Deu no Poste", "Aliança", "Federal", "Look", "Lotece", "Lotep", "Popular", 
   "Tradicional", "LBR", "Maluca", "Nordeste", 
-  "PT-Rio", "PT Rio", "PT-SP", "PT SP", 
+  "PT-Rio", "PT Rio", "PT-SP", "PT SP", "Nacional", "Goiás", "Bahia", "Ceará", "Brasília",
   "CL", "Preferida", "Salvation", "Corujinha", "Amnésia", "Ouro", "União", 
   "Adesp", "Global", "Local", "Águia", "Fênix", "Ponte", "Sorte", "Confiança",
   "Redenção", "Vila", "Capital", "Cotepe", "Potiguar", "Jangadeiro", "Seninha",
+  "Alvorada", "Loteria dos Sonhos", "Pernambuco",
   "PTM", "PT", "PTV", "PTN", "COR"
 ];
 const HORARIOS = ["12:45", "15:30", "18:30", "11:00", "14:00", "16:00", "18:00", "21:00", "Federal (Qua/Sab)"];
@@ -556,6 +557,11 @@ async function realizarSorteio() {
     timerDisplay.innerText = "⚠️ Buscando...";
     timerDisplay.style.color = "#ff6b6b";
     
+    // Se tivermos resultados em cache, mostra eles mesmo com erro na atualização
+    if (Object.keys(resultadosPorBanca).length > 0) {
+        renderizarGradeResultados();
+    }
+
     // Se falhar, tenta novamente em 10 segundos
     tempoRestante = 10;
     iniciarTimer();
@@ -961,6 +967,18 @@ async function buscarResultadoLoteriaSonho() {
     }
   }
   
+  // Fallback: Se falhou extração mas tem cache (ex: de uma execução anterior ou parcial)
+  const bancasCache = Object.keys(resultadosPorBanca);
+  if (bancasCache.length > 0) {
+      const primeira = bancasCache[0];
+      return {
+          valores: resultadosPorBanca[primeira].valores,
+          origem: 'cache',
+          horario: resultadosPorBanca[primeira].horario,
+          bancaDetectada: primeira
+      };
+  }
+
   throw new Error("Não foi possível extrair de nenhuma fonte");
 }
 
@@ -1008,7 +1026,55 @@ function analisarHTML(html, url) {
     // Limpeza de scripts/styles para evitar falsos positivos
     doc.querySelectorAll('script, style, noscript').forEach(el => el.remove());
 
-    // ESTRATÉGIA: Identificar blocos de resultado (Cards)
+    // ============================================================
+    // ESTRATÉGIA 1: Baseada no exemplo Python (Estrutura de Card)
+    // ============================================================
+    // Procura por containers com classe 'banca-card' ou similar, conforme seu exemplo
+    const cards = doc.querySelectorAll('.banca-card, .card, .result-card, div[class*="card"], div[class*="result"]');
+    
+    if (cards.length > 0) {
+        for (const card of cards) {
+            try {
+                // Tenta extrair nome (h3) e horário (span.hora) conforme exemplo Python
+                const nomeEl = card.querySelector('h3, h2, .nome');
+                const horaEl = card.querySelector('.hora, .time, span.hora');
+                
+                if (nomeEl) {
+                    let bancaNome = nomeEl.textContent.trim();
+                    let horario = horaEl ? horaEl.textContent.trim() : "";
+                    
+                    // Se não achou horário no span, tenta no texto do card
+                    if (!horario) {
+                        const matchH = /(\d{2}:\d{2})|(\d{2}h\d{2})/.exec(card.textContent);
+                        if (matchH) horario = matchH[0];
+                    }
+
+                    // Busca números no card (milhares)
+                    const textoCard = card.innerText || card.textContent || "";
+                    const matches = textoCard.match(/(?:\b\d{4}\b|\b\d{1}\.\d{3}\b)/g);
+                    
+                    if (matches) {
+                        const numeros = matches
+                            .map(n => parseInt(n.replace(/\./g, '')))
+                            .filter(n => n < 2023 || n > 2026);
+                        const unicos = [...new Set(numeros)];
+
+                        if (unicos.length >= 5) {
+                            resultadosPorBanca[bancaNome] = { valores: unicos.slice(0, 10), horario: horario || "Hoje" };
+                            
+                            // Define principal se for prioridade
+                            const ehPrioridade = /PT|Federal|Nacional|Rio/i.test(bancaNome);
+                            if (!resultadoPrincipal || (ehPrioridade && !/PT|Federal|Nacional|Rio/i.test(resultadoPrincipal.bancaDetectada))) {
+                                resultadoPrincipal = { valores: unicos.slice(0, 10), bancaDetectada: bancaNome, horario: horario };
+                            }
+                        }
+                    }
+                }
+            } catch (e) {}
+        }
+    }
+
+    // ESTRATÉGIA 2: Genérica e Robusta (Fallback)
     // Procura elementos que pareçam títulos de banca (contêm horário ou nome de banca)
     const candidatos = doc.querySelectorAll('h1, h2, h3, h4, h5, div, span, p, strong, b');
 
@@ -1028,12 +1094,24 @@ function analisarHTML(html, url) {
                 const horario = matchHorario[0];
                 
                 // Extrai nome da banca
-                let bancaNome = texto.split(horario)[0]
+                let parts = texto.split(horario);
+                let bancaNome = parts[0]
                     .replace(/[-–]/g, '')
                     .replace(/\d{2}\/\d{2}\/\d{4}/, '') // Remove data
                     .trim();
                 
+                // Se o nome estava depois do horário (ex: 14:00 PT Rio)
+                if (bancaNome.length < 2 && parts[1]) {
+                    bancaNome = parts[1]
+                        .replace(/[-–]/g, '')
+                        .replace(/\d{2}\/\d{2}\/\d{4}/, '')
+                        .trim();
+                }
+
                 if (bancaNome.length < 2) bancaNome = "Banca " + horario;
+                
+                // Evita duplicar se a Estratégia 1 já pegou
+                if (resultadosPorBanca[bancaNome]) continue;
 
                 // Busca números no container pai e arredores
                 let container = el.parentElement;
@@ -1054,7 +1132,8 @@ function analisarHTML(html, url) {
                 }
 
                 // Extrai milhares (4 dígitos ou 1.234)
-                const matches = textoBusca.match(/(?<!\d)(?:\d{4}|\d{1}\.\d{3})(?!\d)/g);
+                // Regex compatível (sem lookbehind) para evitar erros em Safari/iOS antigos
+                const matches = textoBusca.match(/(?:\b\d{4}\b|\b\d{1}\.\d{3}\b)/g);
                 
                 if (matches) {
                     const numeros = matches
