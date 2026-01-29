@@ -11,7 +11,7 @@ const cotações = {
   terno_dezena: 10000, // Seco
   
   duque_grupo: { seco: 180, cercado: 18 }, // seco = 1º ao 2º, cercado = 1º ao 5º
-  terno_grupo: 1500, // 1º ao 3º
+  terno_grupo: 1500, // 1º ao 5º
   
   unidade: { seco: 1.80, cercado: 1.50 },
   passe_vai: 100, // 1º ao 5º
@@ -694,7 +694,7 @@ async function verificarApostas(resultadoObj) {
         if (aposta.tipo === 'duque_grupo') {
            limite = isCercado ? 4 : 1; // Índices 0-4 ou 0-1 (1º ao 2º)
         } else if (aposta.tipo === 'terno_grupo') {
-           limite = 2; // Índices 0-2 (1º ao 3º)
+           limite = 4; // Índices 0-4 (1º ao 5º)
         }
         
         // Extrai grupos sorteados no range
@@ -1016,10 +1016,93 @@ async function processarFonte(url, proxies) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlContent, 'text/html');
         
-        // Procura por títulos que contenham nomes das bancas conhecidas
-        const titulos = doc.querySelectorAll('h1, h2, h3, h4, h5, h6, strong, b, td, th, .titulo, .banca, span');
         // Tenta identificar pelo HTML, se falhar, usa o nome do link
         let bancaDestaUrl = obterNomeBancaPelaUrl(url);
+
+        // 1. Tenta extrair o horário do sorteio (MOVIDO PARA CIMA)
+        let horarioDetectado = "";
+        const regexHorario = /(\d{1,2}:\d{2})|(\d{1,2}\s*[hH])/;
+        
+        // Procura em títulos/destaques
+        const elementosTexto = doc.querySelectorAll('h1, h2, h3, strong, b, .titulo, .data');
+        for (let el of elementosTexto) {
+          const texto = el.textContent || el.innerText || "";
+          const match = texto.match(regexHorario);
+          if (match) {
+            horarioDetectado = match[0].replace(/\s/g, '').toLowerCase();
+            break;
+          }
+        }
+        // Fallback: Procura no corpo
+        if (!horarioDetectado) {
+           const bodyText = doc.body.textContent || doc.body.innerText || "";
+           const matchBody = bodyText.match(regexHorario);
+           if (matchBody) horarioDetectado = matchBody[0].replace(/\s/g, '').toLowerCase();
+        }
+
+        // ============================
+        // EXTRAÇÃO PRIORITÁRIA (1º ao 5º PRÊMIO)
+        // ============================
+        const premiosPrioritarios = Array(5).fill(undefined);
+
+        // PRIORIDADE TOTAL: TABELAS
+        const tabelasPrioridade = doc.querySelectorAll('table');
+
+        for (let tabela of tabelasPrioridade) {
+          const linhas = tabela.querySelectorAll('tbody tr');
+          const linhasProcessar = linhas.length > 0 ? linhas : tabela.querySelectorAll('tr');
+
+          for (let tr of linhasProcessar) {
+            const tds = tr.querySelectorAll('td');
+            if (tds.length < 2) continue;
+
+            let pos = null;
+            let val = null;
+
+            for (let td of tds) {
+              const txt = (td.textContent || "").trim();
+
+              // Detecta posição (1º, 2º, 3º, 4º, 5º)
+              const matchPos = txt.match(/^(\d{1})[ºo°ª]?$/);
+              if (matchPos) {
+                const p = parseInt(matchPos[1]);
+                if (p >= 1 && p <= 5) pos = p;
+              }
+
+              // Detecta milhar
+              const limpo = txt.replace(/\D/g, '');
+              if (limpo.length === 4) {
+                const num = parseInt(limpo);
+                if (num < anoAtual - 1 || num > anoAtual + 1) {
+                  val = num;
+                }
+              }
+            }
+
+            if (pos && val && premiosPrioritarios[pos - 1] === undefined) {
+              premiosPrioritarios[pos - 1] = val;
+            }
+          }
+        }
+
+        // SE ACHOU OS 5, FINALIZA
+        if (premiosPrioritarios.every(n => n !== undefined)) {
+          resultadosPorBanca[bancaDestaUrl] = {
+            valores: premiosPrioritarios,
+            horario: horarioDetectado || "Hoje"
+          };
+
+          return {
+            valores: premiosPrioritarios,
+            origem: 'real',
+            horario: horarioDetectado,
+            fonte: url,
+            bancaDetectada: bancaDestaUrl
+          };
+        }
+
+        // Procura por títulos que contenham nomes das bancas conhecidas (FALLBACK)
+        const titulos = doc.querySelectorAll('h1, h2, h3, h4, h5, h6, strong, b, td, th, .titulo, .banca, span');
 
         for (let titulo of titulos) {
           const textoTitulo = (titulo.textContent || "").trim();
@@ -1039,7 +1122,7 @@ async function processarFonte(url, proxies) {
             
             // Tenta extrair números dos elementos seguintes (tabela ou lista)
             while (containerBusca && tentativas < 20) {
-              const textoContainer = containerBusca.innerText || containerBusca.textContent || "";
+              const textoContainer =containerBusca.innerText || containerBusca.textContent || "";
               
               // Pula containers muito pequenos ou vazios (provavelmente separadores)
               if (textoContainer.length < 3) { containerBusca = containerBusca.nextElementSibling; tentativas++; continue; }
@@ -1065,27 +1148,6 @@ async function processarFonte(url, proxies) {
         }
 
         const premiosEncontrados = [];
-
-        // Tenta extrair o horário do sorteio (ex: 14:00, 19h)
-        let horarioDetectado = "";
-        const regexHorario = /(\d{1,2}:\d{2})|(\d{1,2}\s*[hH])/;
-        
-        // 1. Procura em títulos/destaques
-        const elementosTexto = doc.querySelectorAll('h1, h2, h3, strong, b, .titulo, .data');
-        for (let el of elementosTexto) {
-          const texto = el.textContent || el.innerText || "";
-          const match = texto.match(regexHorario);
-          if (match) {
-            horarioDetectado = match[0].replace(/\s/g, '').toLowerCase();
-            break;
-          }
-        }
-        // 2. Fallback: Procura no corpo
-        if (!horarioDetectado) {
-           const bodyText = doc.body.textContent || doc.body.innerText || "";
-           const matchBody = bodyText.match(regexHorario);
-           if (matchBody) horarioDetectado = matchBody[0].replace(/\s/g, '').toLowerCase();
-        }
 
         // ESTRATÉGIA 1: Busca por classes específicas (.premio e .numeros)
         // Baseado na estrutura: <li> <div class="premio">1° PRÊMIO</div> <div class="numeros">5354</div> </li>
@@ -1443,6 +1505,92 @@ window.atualizarListaBilhetes = async function() {
           </div>
         </div>
       `;
+    }).join('');
+  } catch (e) {
+    console.error("Erro ao carregar bilhetes:", e);
+  }
+};
+
+window.limparBilhetesAntigos = async function() {
+  if(!confirm("Deseja apagar TODO o histórico de bilhetes da nuvem?")) return;
+  const usuario = obterUsuario();
+  if (!usuario) return;
+
+  try {
+    const q = window.query(window.collection(window.db, "apostas"), window.where("userId", "==", usuario.id));
+    const snapshot = await window.getDocs(q);
+    const batchPromises = [];
+    snapshot.forEach(doc => batchPromises.push(window.deleteDoc(doc.ref)));
+    await Promise.all(batchPromises);
+    atualizarListaBilhetes();
+  } catch(e) {
+    alert("Erro ao limpar: " + e.message);
+  }
+};
+
+// ============================
+// MASCOTE
+// ============================
+
+function adicionarMascote() {
+  const header = document.querySelector("header");
+  if (header && !document.querySelector(".mascote-header")) {
+    const img = document.createElement("img");
+    // Tenta carregar imagens/mascote.png, se falhar usa um placeholder
+    img.src = "imagens/mascote.png"; 
+    img.onerror = () => { 
+      // Se falhar o PNG, tenta JPG. Se falhar ambos, usa placeholder.
+      if (img.src.endsWith("mascote.png")) {
+        img.src = "imagens/mascote.jpg";
+      } else {
+        img.src = "https://placehold.co/150x150/1e293b/00ffd5?text=Mascote"; 
+      }
+    };
+    img.alt = "Mascote Oficial";
+    img.className = "mascote-header";
+    header.insertBefore(img, header.firstChild);
+  }
+}
+
+// ============================
+// MODAL DE COTAÇÕES
+// ============================
+
+function abrirModalCotacoes() {
+  document.getElementById("modal-cotacoes").style.display = "block";
+}
+
+function fecharModalCotacoes() {
+  document.getElementById("modal-cotacoes").style.display = "none";
+}
+
+// Fecha ao clicar fora da imagem
+window.onclick = (event) => {
+  const modal = document.getElementById("modal-cotacoes");
+  if (event.target === modal) {
+    modal.style.display = "none";
+  }
+};
+
+// ============================
+// FUNÇÕES GLOBAIS AUXILIARES
+// ============================
+
+window.obterUsuario = function() {
+  return JSON.parse(localStorage.getItem("usuarioLogado"));
+};
+
+window.atualizarSaldo = function(valor) {
+  const usuario = obterUsuario();
+  if (usuario) {
+    usuario.saldo = valor;
+    localStorage.setItem("usuarioLogado", JSON.stringify(usuario));
+    const elSaldo = document.getElementById("user-saldo");
+    if (elSaldo) elSaldo.innerText = valor.toFixed(2);
+    const elSaldoDisp = document.getElementById("saldo-disponivel");
+    if (elSaldoDisp) elSaldoDisp.innerText = valor.toFixed(2);
+  }
+};
     }).join('');
   } catch (e) {
     console.error("Erro ao carregar bilhetes:", e);
