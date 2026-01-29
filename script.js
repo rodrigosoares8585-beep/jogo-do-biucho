@@ -68,7 +68,30 @@ const BANCAS = [
   "Alvorada", "Loteria dos Sonhos", "Pernambuco",
   "PTM", "PT", "PTV", "PTN", "COR"
 ];
-const HORARIOS = ["12:45", "15:30", "18:30", "11:00", "14:00", "16:00", "18:00", "21:00", "Federal (Qua/Sab)"];
+
+const HORARIOS_POR_BANCA = {
+  "PT-Rio": ["11:20", "14:20", "16:20", "18:20", "21:20"],
+  "PT Rio": ["11:20", "14:20", "16:20", "18:20", "21:20"],
+  "PT-SP": ["13:20", "16:20", "20:00"],
+  "PT SP": ["13:20", "16:20", "20:00"],
+  "Look": ["11:20", "14:20", "16:20", "18:20", "21:20"],
+  "Lotece": ["14:00", "19:00"],
+  "Loteria dos Sonhos": ["14:00", "19:00"],
+  "Nacional": ["02:00", "08:00", "10:00", "12:00", "15:00", "17:00", "19:00", "22:00"],
+  "Federal": ["19:00"],
+  "Lotep": ["10:45", "12:45", "15:45", "18:00"],
+  "Bandeirantes": ["10:00", "12:00", "14:00", "16:00", "18:00", "20:00"],
+  "Alvorada": ["12:00", "15:00", "18:00", "21:00"],
+  "Minas": ["12:00", "15:00", "19:00"],
+  "Bahia": ["10:00", "12:00", "15:00", "19:00", "21:00"],
+  "Paratodos": ["10:00", "12:00", "15:00", "19:00", "21:00"],
+  "LBR": ["10:00", "12:40", "14:40", "16:40", "18:40", "20:40"],
+  "Caminho da Sorte": ["11:00", "14:00", "16:00", "18:00", "21:00"],
+  "Aval": ["11:00", "14:00", "16:00", "18:00", "21:00"],
+  "Pernambuco": ["11:00", "14:00", "16:00", "18:00", "21:00"],
+  "Maluca": ["10:00", "12:00", "15:00", "19:00", "21:00"],
+  "default": ["11:00", "14:00", "16:00", "18:00", "21:00"]
+};
 
 // Cache para armazenar resultados de diferentes bancas extraídos da página
 let resultadosPorBanca = {}; 
@@ -80,16 +103,15 @@ function renderizarSeletores() {
     <h3>⚙️ Configuração da Aposta</h3>
     <div class="form-grupo">
       <label for="select-banca" style="color:#fff; font-weight:600; margin-bottom:5px; display:block;">🏦 Escolha a Banca</label>
-      <select id="select-banca" onchange="atualizarResultadoPorBancaSelecionada()" style="width:100%; padding:12px; border-radius:8px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff;">
+      <select id="select-banca" onchange="aoSelecionarBanca()" style="width:100%; padding:12px; border-radius:8px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff;">
         <option value="">Selecione a Banca...</option>
         ${BANCAS.map(b => `<option value="${b}">${b}</option>`).join('')}
       </select>
     </div>
     <div class="form-grupo">
       <label for="select-horario" style="color:#fff; font-weight:600; margin-bottom:5px; display:block;">⏰ Escolha o Horário</label>
-      <select id="select-horario" style="width:100%; padding:12px; border-radius:8px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff;">
-        <option value="">Selecione o Horário...</option>
-        ${HORARIOS.map(h => `<option value="${h}">${h}</option>`).join('')}
+      <select id="select-horario" disabled style="width:100%; padding:12px; border-radius:8px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.2); color:#fff; opacity: 0.6;">
+        <option value="">Selecione a Banca Primeiro...</option>
       </select>
     </div>
   `;
@@ -97,6 +119,37 @@ function renderizarSeletores() {
   if(container) {
     container.parentNode.insertBefore(div, container);
   }
+}
+
+function aoSelecionarBanca() {
+  const banca = document.getElementById("select-banca").value;
+  const selectHorario = document.getElementById("select-horario");
+  
+  // Limpa opções anteriores
+  selectHorario.innerHTML = '<option value="">Selecione o Horário...</option>';
+  
+  if (!banca) {
+    selectHorario.disabled = true;
+    selectHorario.style.opacity = "0.6";
+    return;
+  }
+
+  selectHorario.disabled = false;
+  selectHorario.style.opacity = "1";
+
+  // Tenta encontrar horários específicos ou usa o padrão
+  // Verifica se existe chave exata ou se o nome da banca contém alguma chave (ex: "Minas MG" contém "Minas")
+  const chaveEncontrada = Object.keys(HORARIOS_POR_BANCA).find(k => k !== "default" && banca.includes(k));
+  const horarios = chaveEncontrada ? HORARIOS_POR_BANCA[chaveEncontrada] : HORARIOS_POR_BANCA["default"];
+
+  horarios.forEach(h => {
+    const option = document.createElement("option");
+    option.value = h;
+    option.textContent = h;
+    selectHorario.appendChild(option);
+  });
+
+  atualizarResultadoPorBancaSelecionada();
 }
 
 function atualizarResultadoPorBancaSelecionada() {
