@@ -1438,7 +1438,14 @@ window.atualizarListaBilhetes = async function() {
 
     container.innerHTML = historico.map(aposta => {
       const statusClass = aposta.status.toLowerCase();
-      const descricao = aposta.tipo === 'grupo' ? `Grupo ${aposta.nomeBicho}` : `${aposta.tipo.toUpperCase()}: ${aposta.numero}`;
+      
+      // Formatação melhorada do tipo e modalidade
+      const tipoFormatado = aposta.tipo.replace(/_/g, " ").toUpperCase();
+      let descricao = aposta.tipo === 'grupo' ? `Grupo ${aposta.nomeBicho}` : `${tipoFormatado}: ${aposta.numero}`;
+      
+      if (aposta.modalidade) {
+        descricao += aposta.modalidade === '1ao5' ? " (1º ao 5º)" : " (Seco)";
+      }
       
       return `
         <div class="bilhete-card ${statusClass}">
@@ -1450,6 +1457,7 @@ window.atualizarListaBilhetes = async function() {
             <div class="bilhete-detalhes">
               <span>${aposta.banca} • ${aposta.horario}</span>
               <span>${aposta.dataAposta}</span>
+              <span style="font-size: 9px; opacity: 0.5;">ID: ${aposta.id}</span>
             </div>
             <div class="bilhete-valor">
               Aposta: ${formatarBRL(aposta.valor)}

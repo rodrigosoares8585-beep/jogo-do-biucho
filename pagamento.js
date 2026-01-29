@@ -37,8 +37,6 @@ function depositar(metodo) {
     valor = parseFloat(document.getElementById("valor-mp").value);
   } else if (metodo === "stripe") {
     valor = parseFloat(document.getElementById("valor-stripe").value);
-  } else if (metodo === "pagbank") {
-    valor = parseFloat(document.getElementById("valor-pagbank").value);
   }
 
   if (!valor || valor < DEPOSITO_MINIMO) {
@@ -50,8 +48,6 @@ function depositar(metodo) {
     processarMercadoPago(valor);
   } else if (metodo === "stripe") {
     processarStripe(valor);
-  } else if (metodo === "pagbank") {
-    processarPagBank(valor);
   }
 }
 
@@ -88,10 +84,6 @@ function processarMercadoPago(valor) {
     document.getElementById("mp-validade").value = "";
     document.getElementById("valor-mp").value = "";
   }
-}
-
-function processarPagBank(valor) {
-  processarPagamentoAutomatico(valor, "PagBank");
 }
 
 function processarStripe(valor) {
@@ -274,9 +266,7 @@ async function processarPagamentoAutomatico(valor, metodo) {
             btnConfirmar.style.cursor = "pointer";
           }
           
-          const inputPagbank = document.getElementById("valor-pagbank");
           const inputPix = document.getElementById("valor-pix");
-          if (inputPagbank) inputPagbank.value = "";
           if (inputPix) inputPix.value = "";
 
           document.getElementById("modal-pix").style.display = "none";

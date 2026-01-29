@@ -2293,7 +2293,7 @@ footer {
   transition: transform 0.2s;
 }
 
-.bilhete-card.ganhou { border-left-color: #00ffd5; background: rgba(0, 255, 213, 0.05); }
+.bilhete-card.ganhou { border-left-color: #10b981; background: rgba(16, 185, 129, 0.05); }
 .bilhete-card.perdeu { border-left-color: #ff6b6b; opacity: 0.7; }
 .bilhete-card.pendente { border-left-color: #ffd166; }
 
